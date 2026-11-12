@@ -1,4 +1,4 @@
-"""Command-line entry point for LinkedIn collection."""
+"""Command-line entry point for job collection."""
 
 from collector.linkedin import main
 

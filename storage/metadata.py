@@ -35,18 +35,6 @@ CLEARANCE_REQUIRED = re.compile(
     r"^\W*security clearance\s*:\s*(?:baseline|nv[\s-]*[12]|pv|positive vetting)\W*$)",
     re.I,
 )
-CLIENT_DELIVERY = re.compile(
-    r"\b(?:partner with (?:our )?clients[^.!?;]{0,100}to (?:build|deliver|develop)|"
-    r"(?:build|develop|implement|deliver)\s+(?:custom\s+)?"
-    r"(?:software|applications?|platforms?|technical solutions)\s+for (?:our |external )clients|"
-    r"(?:embedded|embed) (?:in|with|within) (?:a |the )?client(?:'s)? (?:team|organisation)|"
-    r"outsourced (?:development|engineering|delivery)|client delivery (?:team|projects?))\b", re.I,
-)
-IN_HOUSE = re.compile(
-    r"\bin[ -]house (?:applications?|products?|platforms?|software|development)\b|"
-    r"(?:^|[.!?]\s+)(?:you(?: will|'ll)\s+)?(?:build|develop|maintain|design|own)\s+"
-    r"our (?:own |flagship |core )?(?:products?|platforms?|software|applications?)\b", re.I,
-)
 OUTSOURCED_HIRE = re.compile(
     r"\b(?:this (?:is|will be) an outsourced (?:role|position)|"
     r"(?:this|the) (?:role|position) (?:is|will be) outsourced|"
@@ -100,13 +88,9 @@ def derive_metadata(capture):
         METRO_NAMES.get(locality.casefold(), locality) or None
     )
     description = capture["description"]
-    searchable = " ".join(description.split())
-    client = bool(CLIENT_DELIVERY.search(searchable))
-    in_house = bool(IN_HOUSE.search(searchable))
-    delivery_model = ("Client delivery" if client else "In-house") if client != in_house else None
     clauses = re.split(r"[.!?;]\s+|\n", description)
     clearance_required = any(
         CLEARANCE_REQUIRED.search(clause) and not CLEARANCE_OPTIONAL.search(clause)
         for clause in (" ".join(part.split()).rstrip(".") for part in clauses)
     )
-    return city, delivery_model, clearance_required
+    return city, clearance_required

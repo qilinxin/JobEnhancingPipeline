@@ -22,7 +22,7 @@ h2 { font-size: 1.25rem; margin: 0 0 1rem; }
 }
 .table-wrap { overflow-x: auto; }
 .table-wrap:focus-visible { outline: 3px solid #287d68; outline-offset: 4px; }
-.jobs { width: 100%; min-width: 48rem; border-collapse: collapse; table-layout: fixed; }
+.jobs { width: 100%; min-width: 63rem; border-collapse: collapse; table-layout: fixed; }
 .jobs :is(th, td) {
   padding: 0.85rem 0.8rem;
   text-align: left;
@@ -36,14 +36,15 @@ h2 { font-size: 1.25rem; margin: 0 0 1rem; }
 .jobs tbody td { color: #304842; font-size: 0.91rem; }
 .job { text-decoration: none; }
 .job:hover { text-decoration: underline; }
-.run { white-space: nowrap; }
-.title-col { width: 27%; }
-.company-col { width: 17%; }
-.city-col { width: 12%; }
-.posted-col { width: 12%; }
-.delivery-col { width: 16%; }
-.run-col { width: 7%; }
-.score-col { width: 9%; }
+.title-col { width: 23%; }
+.source-col { width: 8%; }
+.company-col { width: 14%; }
+.city-col { width: 10%; }
+.technologies-col { width: 21%; }
+.delivery-col { width: 7%; }
+.score-col { width: 8%; }
+.applied-col { width: 9%; }
+.applied-button { font: inherit; font-size: 0.78rem; padding: 0.1rem 0.35rem; cursor: pointer; }
 .library { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 2rem; }
 .dates { display: grid; gap: 0.35rem; }
 .dates a {
@@ -64,12 +65,21 @@ dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 dt { color: #526660; font-size: 0.85rem; }
 dd { margin: 0.2rem 0 0; }
 .external { display: inline-block; margin-block: 0.25rem 1.5rem; }
-.detail { max-width: 64rem; }
 .description, .empty { padding: clamp(1rem, 4vw, 2rem); }
 .description + .description { margin-top: 1rem; }
 .prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.match-details { padding-inline-start: 1.25rem; margin-block: 0; overflow-wrap: anywhere; }
+.match-details > li + li { margin-top: 0.75rem; }
+.match-details ul { padding-inline-start: 1.25rem; margin-top: 0.25rem; }
+.match-details p { margin: 0.25rem 0 0; }
 .documents { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
 .documents span { margin-inline-start: 0.6rem; color: #526660; font-size: 0.88rem; }
 @media (max-width: 35rem) {
   .library { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
 }
+.top-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+.blacklist-form { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+.blacklist-form label { display: grid; gap: 0.35rem; }
+.blacklist-form input, .blacklist-form button, .blacklist-companies button { font: inherit; padding: 0.45rem 0.65rem; }
+.blacklist-companies { list-style: none; padding: 0; }
+.blacklist-companies li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #e3e9e3; padding: 0.75rem 0; }

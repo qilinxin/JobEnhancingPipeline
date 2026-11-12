@@ -26,6 +26,17 @@ For a new database, apply [the schema](sql/schema.sql). For an existing database
 2. [Job metadata](sql/add_job_metadata.sql)
 3. [Hiring model](sql/add_hiring_model.sql)
 4. [Company review fields](sql/add_delivery_review.sql)
+5. [Capture classification and technologies](sql/add_capture_classification.sql)
+6. [Company blacklist](sql/add_company_blacklist.sql)
+7. [Applied jobs](sql/add_applied_jobs.sql)
+
+After applying the capture classification migration to an existing database, run `venv/bin/python -m storage.posting` to classify earlier captures and extract their key technologies.
+
+After applying the blacklist migration to an existing database, populate the company keys for earlier captures:
+
+```sh
+venv/bin/python -c 'from storage.postgres import connect; from storage.blacklist import backfill_company_keys; conn = connect(); backfill_company_keys(conn); conn.close()'
+```
 
 To populate city and clearance fields on existing captures, run `venv/bin/python linkedin_storage.py --backfill-metadata`.
 
@@ -35,11 +46,23 @@ To populate city and clearance fields on existing captures, run `venv/bin/python
 venv/bin/python jobs_web.py
 ```
 
-Open the [Job Library](http://127.0.0.1:8765/). The sidebar groups captures by Sydney local date. The list sorts jobs by match score in descending order, with unscored jobs last. Select a job title to see the full description, original LinkedIn link, match details, company review evidence, and available downloads. You can also run the [verification query](sql/verify_latest_capture.sql) in DBeaver.
+Open the [Job Library](http://127.0.0.1:8765/). The sidebar groups captures by Sydney local date. Each date combines all collection runs, and the Source column identifies the job board. The list sorts jobs by match score in descending order, with unscored jobs last. Select a job title to see the full description, original posting link, match details, company review evidence, and available downloads. You can also run the [verification query](sql/verify_latest_capture.sql) in DBeaver.
 
-The **Model** column shows `In-house` for work on a company's own products or systems, and `Outsourced` for external client delivery. The scheduled review checks finished collection runs and uses the job description together with public company sources. Jobs awaiting a review show `Pending review`. Completed reviews with insufficient evidence show `Unconfirmed`. A change to the title, company, or description queues a new review.
+The **In-house** column shows `Y` for work on a company's own products or systems and `N` for external client delivery. Pending and unconfirmed roles have a blank cell. Company review starts automatically after the collector finishes a run and processes that run's pending captures. It uses a signed-in Codex CLI available on `PATH` to research the company, then uses the job description to connect the role to the relevant product or service line. Every classification requires a public source, linked in the job detail. The job detail shows whether the review is pending or unconfirmed. A change to the title, company, or description queues a new review.
 
-The matching workflow can write `match_score` and `match_details` by capture ID. Skip records with `clearance_required = true`, which the collector assigns a score of 0. Place application documents under the same capture ID, for example `application_files/1/resume.pdf` and `application_files/1/cover-letter.docx`. Both PDF and DOCX are supported. The PDF is preferred when both versions exist.
+To retry pending reviews for a finished run without collecting the jobs again, use:
+
+```sh
+venv/bin/python -m storage.delivery_review --run-id 1
+```
+
+The list shows new and explicitly reposted jobs for the selected run. It uses the LinkedIn job ID and identical posting text with matching job metadata to identify repeats. The Key technologies column shows up to five terms found in the job description.
+
+Open **Company blacklist** in the Job Library header to add or remove a company. Captures from blocked companies are hidden and receive a match score of 0. Removing a company restores its earlier scores. Block a company when you know that its roles are unsuitable, for example when all of its roles require security clearance.
+
+Use **Applied** in the **Status** column to hide that posting from the default list, including captures from later runs. Open **Applied jobs** to see marked jobs for the selected date, and use **Undo** to return a posting to the default list.
+
+Use `--score-with-codex` to send the resume text and job descriptions to Codex for matching after company review succeeds. To score a finished run separately, use `venv/bin/python -m storage.match_review --run-id 2`, replacing `2` with the actual run ID. The collector assigns a score of 0 to jobs requiring security clearance. Place application documents under the same capture ID, for example `application_files/1/resume.pdf` and `application_files/1/cover-letter.docx`. Both PDF and DOCX are supported. The PDF is preferred when both versions exist.
 
 ## Collect LinkedIn Jobs search results
 

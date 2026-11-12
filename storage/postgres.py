@@ -9,7 +9,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import psycopg
 from psycopg.rows import dict_row
 
-from .metadata import classify_hiring_model, derive_metadata
+from .blacklist import company_key, lock_company
+from .metadata import classify_hiring_model, derive_metadata, posting_fields
+from .posting import posting_features
 
 
 def connect():
@@ -27,6 +29,8 @@ def connect():
 def search_url_without_selection(url):
     parts = urlsplit(url)
     ignored = {"currentJobId", "eBP", "refId", "trackingId"}
+    if parts.hostname == "au.indeed.com" and parts.path == "/jobs":
+        ignored.update({"vjk", "jk"})
     params = sorted((key, value) for key, value in parse_qsl(parts.query) if key not in ignored)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), ""))
 
@@ -43,7 +47,7 @@ def collection_run(conn, *, run_id=None, search_url=None, search_name=None):
     with conn.transaction():
         if run_id is None:
             if not search_url:
-                raise ValueError("新批次需要搜索结果页链接")
+                raise ValueError("A search results URL is required for a new run.")
             normalized = search_url_without_selection(search_url)
             name = search_name or dict(parse_qsl(urlsplit(normalized).query)).get("keywords")
             conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 1))", (normalized,))
@@ -69,10 +73,10 @@ def collection_run(conn, *, run_id=None, search_url=None, search_name=None):
         ).fetchone()
         if existing is None or (search_url and search_url_without_selection(existing[0]) !=
                                 search_url_without_selection(search_url)):
-            raise ValueError(f"批次 {run_id} 不存在，或与当前搜索条件不一致")
+            raise ValueError(f"Run {run_id} does not exist or does not match the current search.")
         locked = conn.execute("SELECT pg_try_advisory_lock(%s)", (run_id,)).fetchone()[0]
         if not locked:
-            raise ValueError(f"采集批次 {run_id} 已在运行")
+            raise ValueError(f"Collection run {run_id} is already in progress.")
         conn.execute(
             """UPDATE public.linkedin_collection_runs
                SET status = 'running', finished_at = NULL, error_message = NULL WHERE id = %s""",
@@ -87,7 +91,7 @@ def collection_run(conn, *, run_id=None, search_url=None, search_name=None):
         try:
             finish_run(conn, run)
         except psycopg.Error as finish_error:
-            exc.add_note(f"更新批次状态失败: {finish_error}")
+            exc.add_note(f"Failed to update the collection run status: {finish_error}")
         raise
     else:
         finish_run(conn, run)
@@ -128,10 +132,18 @@ def save_capture(conn, run_id, capture):
     captured_at = datetime.fromisoformat(capture["captured_at"])
     if captured_at.utcoffset() is None:
         raise ValueError("captured_at must include a UTC offset.")
-    city, delivery_model, clearance_required = derive_metadata(capture)
+    city, clearance_required = derive_metadata(capture)
     hiring_model = classify_hiring_model(capture["description"])
+    fingerprint, repost, technologies = posting_features(capture)
+    key = company_key(posting_fields(capture)[0])
 
     with conn.transaction(), conn.cursor() as cur:
+        lock_company(cur, key)
+        cur.execute(
+            "SELECT EXISTS (SELECT 1 FROM public.linkedin_company_blacklist WHERE company_key = %s)",
+            (key,),
+        )
+        blacklisted = cur.fetchone()[0]
         cur.execute(
             """
             INSERT INTO public.linkedin_jobs (linkedin_job_id, canonical_url)
@@ -162,25 +174,42 @@ def save_capture(conn, run_id, capture):
                 (job_id, db_job_id),
             )
 
+        if fingerprint:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 2))", (fingerprint,))
+        cur.execute(
+            """SELECT
+                   (SELECT capture_kind FROM public.linkedin_job_captures WHERE run_id = %s AND job_id = %s),
+                   EXISTS (SELECT 1 FROM public.linkedin_job_captures
+                           WHERE run_id = %s AND job_id <> %s AND posting_fingerprint = %s),
+                   EXISTS (SELECT 1 FROM public.linkedin_job_captures
+                           WHERE run_id < %s AND (job_id = %s OR posting_fingerprint = %s))""",
+            (run_id, db_job_id, run_id, db_job_id, fingerprint, run_id, db_job_id, fingerprint),
+        )
+        current_kind, same_run, earlier = cur.fetchone()
+        kind = current_kind or ("duplicate" if same_run else "repost" if repost else "duplicate" if earlier else "new")
         cur.execute(
             """
             INSERT INTO public.linkedin_job_captures AS existing (
                 run_id, job_id, captured_at, title, company, location,
                 description, posted_label, posted_at, salary_text,
-                city, delivery_model, clearance_required, match_score, hiring_model
+                city, clearance_required, match_score, hiring_model,
+                capture_kind, posting_fingerprint, key_technologies, company_key, company_blacklisted
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (run_id, job_id) DO UPDATE SET
                 captured_at = EXCLUDED.captured_at,
                 title = EXCLUDED.title,
                 company = EXCLUDED.company,
+                company_key = EXCLUDED.company_key,
+                company_blacklisted = EXCLUDED.company_blacklisted,
                 location = EXCLUDED.location,
                 description = EXCLUDED.description,
                 posted_label = EXCLUDED.posted_label,
                 posted_at = EXCLUDED.posted_at,
                 salary_text = EXCLUDED.salary_text,
                 city = EXCLUDED.city,
-                delivery_model = EXCLUDED.delivery_model,
+                posting_fingerprint = EXCLUDED.posting_fingerprint,
+                key_technologies = EXCLUDED.key_technologies,
                 delivery_reviewed_at = CASE
                     WHEN (existing.title, existing.company, existing.description)
                       IS NOT DISTINCT FROM (EXCLUDED.title, EXCLUDED.company, EXCLUDED.description)
@@ -189,9 +218,23 @@ def save_capture(conn, run_id, capture):
                 hiring_model = EXCLUDED.hiring_model,
                 clearance_required = EXCLUDED.clearance_required,
                 match_score = CASE
-                    WHEN EXCLUDED.clearance_required THEN 0
-                    WHEN existing.clearance_required THEN NULL
+                    WHEN EXCLUDED.company_blacklisted OR EXCLUDED.clearance_required THEN 0
+                    WHEN existing.clearance_required OR (existing.title, existing.company, existing.description)
+                         IS DISTINCT FROM (EXCLUDED.title, EXCLUDED.company, EXCLUDED.description) THEN NULL
+                    WHEN existing.company_blacklisted THEN existing.score_before_blacklist
                     ELSE existing.match_score
+                END,
+                score_before_blacklist = CASE
+                    WHEN EXCLUDED.company_blacklisted AND NOT EXCLUDED.clearance_required
+                         AND (existing.title, existing.company, existing.description)
+                             IS NOT DISTINCT FROM (EXCLUDED.title, EXCLUDED.company, EXCLUDED.description)
+                    THEN CASE WHEN existing.company_blacklisted THEN existing.score_before_blacklist
+                              ELSE existing.match_score END
+                END,
+                match_details = CASE
+                    WHEN (existing.title, existing.company, existing.description, existing.clearance_required)
+                      IS NOT DISTINCT FROM (EXCLUDED.title, EXCLUDED.company, EXCLUDED.description, EXCLUDED.clearance_required)
+                    THEN existing.match_details
                 END
             WHERE EXCLUDED.captured_at >= existing.captured_at
             """,
@@ -200,7 +243,8 @@ def save_capture(conn, run_id, capture):
                 capture.get("company"), capture.get("location"),
                 capture["description"], capture.get("posted_label"),
                 capture.get("posted_at"), capture.get("salary_text"),
-                city, delivery_model, clearance_required, 0 if clearance_required else None, hiring_model,
+                city, clearance_required, 0 if clearance_required or blacklisted else None, hiring_model,
+                kind, fingerprint, technologies, key, blacklisted,
             ),
         )
     return db_job_id
@@ -214,14 +258,15 @@ def backfill_job_metadata(conn):
         )
         rows = cur.fetchall()
         for row in rows:
-            city, delivery_model, clearance_required = derive_metadata(row)
+            city, clearance_required = derive_metadata(row)
             cur.execute(
                 """UPDATE public.linkedin_job_captures
-                   SET city = %s, delivery_model = %s,
-                       match_score = CASE WHEN %s THEN 0 WHEN clearance_required THEN NULL ELSE match_score END,
+                   SET city = %s,
+                       match_score = CASE WHEN %s OR company_blacklisted THEN 0
+                                          WHEN clearance_required THEN NULL ELSE match_score END,
                        clearance_required = %s
                    WHERE id = %s""",
-                (city, delivery_model, clearance_required, clearance_required, row["id"]),
+                (city, clearance_required, clearance_required, row["id"]),
             )
     return len(rows)
 
