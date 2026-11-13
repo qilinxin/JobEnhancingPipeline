@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import re
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
 from psycopg.rows import dict_row
 
@@ -71,29 +73,57 @@ def posting_features(capture):
     return fingerprint, bool(REPOST.search(posted or "")), key_technologies(capture["description"])
 
 
+POST_AGE = re.compile(r"\b(\d+)\s*(minute|hour|day|week)s?\s+ago\b", re.I)
+AGE_UNITS = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800}
+
+
+def posting_window(posted_at, label, captured_at):
+    """Return the possible publication interval based on the available precision."""
+    if isinstance(posted_at, str):
+        try:
+            posted_at = datetime.fromisoformat(posted_at)
+        except ValueError:
+            posted_at = None
+    if posted_at and posted_at.utcoffset() is not None:
+        return posted_at, posted_at
+    captured_at = captured_at.astimezone(timezone.utc)
+    match = POST_AGE.search(label or "")
+    if match:
+        unit = timedelta(seconds=AGE_UNITS[match[2].lower()])
+        upper = captured_at - int(match[1]) * unit
+        return upper - unit, upper
+    if re.search(r"\bjust now\b", label or "", re.I):
+        return captured_at - timedelta(minutes=1), captured_at
+    return None
+
+
+def classify_capture(repost, window, previous):
+    if not previous:
+        return "repost" if repost else "new"
+    if repost and window and all(prior and window[0] > prior[1] for prior in previous):
+        return "repost"
+    return "duplicate"
+
+
 def backfill(conn):
-    seen_jobs, seen_postings, seen_in_run = set(), set(), set()
+    seen_jobs, seen_postings = defaultdict(list), defaultdict(list)
+    seen_in_run = set()
     with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
-        cur.execute("""SELECT id, run_id, job_id, title, company, location, posted_label, description
+        cur.execute("""SELECT id, run_id, job_id, title, company, location, posted_label, posted_at, captured_at, description
                        FROM public.linkedin_job_captures ORDER BY captured_at, id FOR UPDATE""")
         for capture in cur.fetchall():
             fingerprint, repost, technologies = posting_features(capture)
             job, run = capture["job_id"], capture["run_id"]
             repeated_in_run = fingerprint and (run, fingerprint) in seen_in_run
-            if repeated_in_run:
-                kind = "duplicate"
-            elif repost:
-                kind = "repost"
-            elif job in seen_jobs or fingerprint in seen_postings:
-                kind = "duplicate"
-            else:
-                kind = "new"
+            window = posting_window(capture["posted_at"], capture["posted_label"], capture["captured_at"])
+            previous = seen_jobs[job] + (seen_postings[fingerprint] if fingerprint else [])
+            kind = "duplicate" if repeated_in_run else classify_capture(repost, window, previous)
             cur.execute("""UPDATE public.linkedin_job_captures SET capture_kind = %s,
                            posting_fingerprint = %s, key_technologies = %s WHERE id = %s""",
                         (kind, fingerprint, technologies, capture["id"]))
-            seen_jobs.add(job)
+            seen_jobs[job].append(window)
             if fingerprint:
-                seen_postings.add(fingerprint)
+                seen_postings[fingerprint].append(window)
                 seen_in_run.add((run, fingerprint))
 
 

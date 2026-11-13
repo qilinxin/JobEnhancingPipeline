@@ -11,7 +11,7 @@ from psycopg.rows import dict_row
 
 from .blacklist import company_key, lock_company
 from .metadata import classify_hiring_model, derive_metadata, posting_fields
-from .posting import posting_features
+from .posting import classify_capture, posting_features, posting_window
 
 
 def connect():
@@ -180,14 +180,19 @@ def save_capture(conn, run_id, capture):
             """SELECT
                    (SELECT capture_kind FROM public.linkedin_job_captures WHERE run_id = %s AND job_id = %s),
                    EXISTS (SELECT 1 FROM public.linkedin_job_captures
-                           WHERE run_id = %s AND job_id <> %s AND posting_fingerprint = %s),
-                   EXISTS (SELECT 1 FROM public.linkedin_job_captures
-                           WHERE run_id <> %s AND captured_at <= %s
-                             AND (job_id = %s OR posting_fingerprint = %s))""",
-            (run_id, db_job_id, run_id, db_job_id, fingerprint, run_id, captured_at, db_job_id, fingerprint),
+                           WHERE run_id = %s AND job_id <> %s AND posting_fingerprint = %s)""",
+            (run_id, db_job_id, run_id, db_job_id, fingerprint),
         )
-        current_kind, same_run, earlier = cur.fetchone()
-        kind = current_kind or ("duplicate" if same_run else "repost" if repost else "duplicate" if earlier else "new")
+        current_kind, same_run = cur.fetchone()
+        cur.execute(
+            """SELECT posted_at, posted_label, captured_at FROM public.linkedin_job_captures
+               WHERE run_id <> %s AND captured_at <= %s
+                 AND (job_id = %s OR posting_fingerprint = %s)""",
+            (run_id, captured_at, db_job_id, fingerprint),
+        )
+        previous = [posting_window(*row) for row in cur.fetchall()]
+        window = posting_window(capture.get("posted_at"), capture.get("posted_label"), captured_at)
+        kind = current_kind or ("duplicate" if same_run else classify_capture(repost, window, previous))
         cur.execute(
             """
             INSERT INTO public.linkedin_job_captures AS existing (
