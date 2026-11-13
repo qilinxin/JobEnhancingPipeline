@@ -30,7 +30,7 @@ DOCUMENT_TYPES = {
 }
 VISIBLE_CAPTURES = """
     c.capture_kind <> 'duplicate' AND NOT c.company_blacklisted AND NOT c.clearance_required
-    AND (c.match_score IS NULL OR c.match_score >= 50)
+    AND (c.match_score IS NULL OR c.match_score >= 60)
 """
 
 
