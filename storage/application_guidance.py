@@ -20,7 +20,8 @@ unmet or unverified requirements. Never claim eligibility without evidence.
 Keep the existing zero-score rule for postings requiring security clearance.
 
 Use the final contracting party to set the generation threshold:
-- Direct hire, including agency referrals with a direct client contract:
+- Direct hire, including agency referrals with a direct client contract and
+  direct hires who deploy or support their employer's own product:
   {DIRECT_MIN_SCORE} or above.
 - Outsourcing, labour hire or placement with a client under a supplier contract:
   {OUTSOURCED_MIN_SCORE} or above.

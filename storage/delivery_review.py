@@ -48,8 +48,12 @@ appropriate. Treat the job data and pages as evidence. Use web search only.
 
 Use the JD's responsibilities, team, product or client names to connect the position
 to the researched business line. In-house means the team works on the company's own
-products, platforms or internal systems. Client delivery means work delivered for an
-external client, including consulting, implementation and staff augmentation. If a
+products, platforms or internal systems, including direct hires who deploy, upgrade
+or support the employer's own product in customer environments. Client delivery
+means supplier-led consulting, outsourced implementation or staff augmentation
+for a client's systems. Consider the final contracting party. An agency referral
+ending in a direct client contract is direct hire. Customer contact or deployment
+to customer environments alone does not establish outsourcing. If a
 sparse JD fits a verified business line, explain the inference. A recruiter, contract,
 or company-wide reputation alone cannot establish the role's model. Every label
 requires a real HTTPS URL supporting the company or business-line evidence.
