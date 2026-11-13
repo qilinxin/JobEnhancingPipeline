@@ -99,6 +99,10 @@ To create a new run for historical data, replace `--run-id` with `--search-url '
 
 ## Application document guidelines
 
+Keep confirmed education, work arrangements and role preferences in the local
+`applicant_profile.md` file. The application guidance references this file for
+eligibility and role screening. Git ignores the profile.
+
 The [application guidance](storage/application_guidance.py) defines the
 eligibility checks, score thresholds, resume editing rules, cover letter
 format and delivery checks for preparing application documents. Confirm the latest resume baseline before preparing documents. Use the

@@ -3,6 +3,7 @@
 DIRECT_MIN_SCORE = 75
 OUTSOURCED_MIN_SCORE = 85
 COVER_LETTER_TEMPLATE = "templates/cover_letter.md"
+APPLICANT_PROFILE = "applicant_profile.md"
 APPLICANT_NAME = "William(Linxin) Qi"
 WORK_RIGHTS = (
     "Unrestricted Australian work rights on a Temporary Graduate visa (subclass 485), "
@@ -10,6 +11,8 @@ WORK_RIGHTS = (
 )
 
 ELIGIBILITY_GUIDE = f"""
+Read {APPLICANT_PROFILE} for confirmed applicant facts and role preferences.
+Apply those preferences before generating documents.
 Check mandatory eligibility before deciding whether to generate documents. Compare
 citizenship, active security clearance, work rights and explicit on-site or
 relocation requirements with the applicant's confirmed circumstances. Report
