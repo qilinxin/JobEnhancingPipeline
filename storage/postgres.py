@@ -31,6 +31,10 @@ def search_url_without_selection(url):
     ignored = {"currentJobId", "eBP", "refId", "trackingId"}
     if parts.hostname == "au.indeed.com" and parts.path == "/jobs":
         ignored.update({"vjk", "jk"})
+    if parts.hostname in {"au.seek.com", "seek.com.au", "www.seek.com.au"}:
+        ignored.add("page")
+    if parts.hostname == "www.linkedin.com":
+        ignored.add("start")
     params = sorted((key, value) for key, value in parse_qsl(parts.query) if key not in ignored)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), ""))
 

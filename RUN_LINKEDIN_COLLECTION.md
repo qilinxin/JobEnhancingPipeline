@@ -150,3 +150,5 @@ venv/bin/python run.py --source seek --tab 1 --limit 1
 Compare the terminal title and link with the JD in Job Library. After verifying one job, use `--limit 5`. Add `--score-with-codex` to send the JD and baseline resume to Codex for scoring. Company review runs after collection.
 
 The collector reads visible cards on the selected results page and opens each posting in a separate Chrome tab. If a board changes its layout, inspect a search card and a standalone posting in Chrome DevTools and check the card, title, and description selectors in `collector/job_boards.py`. Check that the description selector matches the full JD for the URL printed by the collector. Use an approved collection method for your research.
+
+For a full SEEK search, start on the first results page and run `venv/bin/python run.py --source seek --all-pages --score-with-codex`. Add `--run-id ID` to resume an existing batch and skip postings already saved in that batch.

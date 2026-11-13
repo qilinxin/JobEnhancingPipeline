@@ -370,8 +370,8 @@ def main():
     parser.add_argument("--score-with-codex", action="store_true",
                         help="Send the resume text and job descriptions to Codex for match scoring.")
     args = parser.parse_args()
-    if args.all_pages and args.source != "linkedin":
-        parser.error("--all-pages is currently available for LinkedIn only.")
+    if args.all_pages and args.source == "indeed":
+        parser.error("--all-pages is currently available for LinkedIn and SEEK.")
     if args.all_pages and args.title:
         parser.error("--all-pages and --title cannot be used together.")
     if args.limit is None and not args.all_pages:

@@ -122,13 +122,40 @@ def read_board_job(page, source, url):
     return record
 
 
+def seek_result_urls(page, first_cards):
+    cards = first_cards
+    visited = {page.url}
+    number = 1
+    while True:
+        print(f"SEEK results page {number} contains {len(cards)} job cards.", flush=True)
+        yield from cards
+        next_page = page.get_by_role("link", name="Next", exact=True).filter(visible=True).first
+        if not next_page.is_visible():
+            return
+        href = next_page.get_attribute("href")
+        if not href:
+            return
+        url = urljoin(page.url, href)
+        if source_for_url(url) != "SEEK" or url in visited:
+            raise BoardAccessError("SEEK did not provide a new results page.")
+        response = page.goto(url, wait_until="domcontentloaded", timeout=15000)
+        if response and response.status in {401, 403, 429, 503}:
+            raise BoardAccessError(f"SEEK returned HTTP {response.status}.")
+        check_board_access(page, "SEEK")
+        visited.add(url)
+        page.locator(SELECTORS["SEEK"]["cards"]).first.wait_for(state="visible", timeout=8000)
+        cards = board_cards(page, "SEEK", None)
+        number += 1
+
+
 def collect_board_cards(page, args, playwright_error, conn, run, source, cards, delay):
     seen = captured_urls(conn, run.id)
     detail = page.context.new_page()
     failed = 0
     attempted = False
     try:
-        for url in cards:
+        urls = seek_result_urls(page, cards) if args.all_pages else cards
+        for url in urls:
             if url in seen:
                 continue
             if attempted:
@@ -148,6 +175,7 @@ def collect_board_cards(page, args, playwright_error, conn, run, source, cards, 
                 failed += 1
                 continue
             save_capture(conn, run.id, record)
+            seen.add(url)
             run.saved += 1
             print(f"{record['title']} | {url}", flush=True)
             if run.saved == args.limit:
@@ -155,4 +183,4 @@ def collect_board_cards(page, args, playwright_error, conn, run, source, cards, 
     finally:
         detail.close()
     print(f"Saved {run.saved} jobs to PostgreSQL. Failed to read {failed}.", flush=True)
-    return int(failed > 0 and run.saved == 0)
+    return int(failed > 0 and (args.all_pages or run.saved == 0))
