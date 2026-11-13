@@ -182,8 +182,9 @@ def save_capture(conn, run_id, capture):
                    EXISTS (SELECT 1 FROM public.linkedin_job_captures
                            WHERE run_id = %s AND job_id <> %s AND posting_fingerprint = %s),
                    EXISTS (SELECT 1 FROM public.linkedin_job_captures
-                           WHERE run_id < %s AND (job_id = %s OR posting_fingerprint = %s))""",
-            (run_id, db_job_id, run_id, db_job_id, fingerprint, run_id, db_job_id, fingerprint),
+                           WHERE run_id <> %s AND captured_at <= %s
+                             AND (job_id = %s OR posting_fingerprint = %s))""",
+            (run_id, db_job_id, run_id, db_job_id, fingerprint, run_id, captured_at, db_job_id, fingerprint),
         )
         current_kind, same_run, earlier = cur.fetchone()
         kind = current_kind or ("duplicate" if same_run else "repost" if repost else "duplicate" if earlier else "new")

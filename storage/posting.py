@@ -63,9 +63,10 @@ def key_technologies(description):
 
 
 def posting_features(capture):
-    company, location, posted = posting_fields(capture)
+    company, _, posted = posting_fields(capture)
+    # Boards format the same location differently. Match the employer, title and JD.
     normalized = [" ".join((value or "").casefold().split()) for value in
-                  (capture["title"], company, location, capture["description"])]
+                  (capture["title"], company, capture["description"])]
     fingerprint = hashlib.sha256("\x1f".join(normalized).encode()).hexdigest() if all(normalized) else None
     return fingerprint, bool(REPOST.search(posted or "")), key_technologies(capture["description"])
 
@@ -74,7 +75,7 @@ def backfill(conn):
     seen_jobs, seen_postings, seen_in_run = set(), set(), set()
     with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
         cur.execute("""SELECT id, run_id, job_id, title, company, location, posted_label, description
-                       FROM public.linkedin_job_captures ORDER BY run_id, captured_at, id FOR UPDATE""")
+                       FROM public.linkedin_job_captures ORDER BY captured_at, id FOR UPDATE""")
         for capture in cur.fetchall():
             fingerprint, repost, technologies = posting_features(capture)
             job, run = capture["job_id"], capture["run_id"]
