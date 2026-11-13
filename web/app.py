@@ -28,9 +28,15 @@ DOCUMENT_TYPES = {
     ".pdf": "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-VISIBLE_CAPTURES = """
+DISPLAY_SCORE = """CASE
+    WHEN c.match_score IS NOT NULL AND c.delivery_reviewed_at IS NOT NULL
+         AND c.reviewed_delivery_model = 'Client delivery'
+    THEN GREATEST(c.match_score - 10, 0)
+    ELSE c.match_score
+END"""
+VISIBLE_CAPTURES = f"""
     c.capture_kind <> 'duplicate' AND NOT c.company_blacklisted AND NOT c.clearance_required
-    AND (c.match_score IS NULL OR c.match_score >= 60)
+    AND (c.match_score IS NULL OR ({DISPLAY_SCORE}) >= 60)
 """
 
 
@@ -175,7 +181,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
             f"""SELECT * FROM (
                    SELECT DISTINCT ON (c.job_id)
                           c.id, title, company, location, city, posted_label, captured_at,
-                          match_score, delivery_reviewed_at, reviewed_delivery_model,
+                          {DISPLAY_SCORE} AS display_score, delivery_reviewed_at, reviewed_delivery_model,
                           key_technologies, j.canonical_url
                    FROM public.linkedin_job_captures c JOIN public.linkedin_jobs j ON j.id = c.job_id
                    WHERE captured_at >= %s AND captured_at < %s
@@ -183,7 +189,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
                      AND (j.applied_at IS NOT NULL) = %s
                    ORDER BY c.job_id, captured_at DESC, c.id DESC
                ) AS latest
-               ORDER BY match_score DESC NULLS LAST, captured_at DESC, id DESC""",
+               ORDER BY display_score DESC NULLS LAST, captured_at DESC, id DESC""",
             (start, end, show_applied),
         )
         rows = cur.fetchall()
@@ -206,7 +212,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
   <th scope="row"><a class="job" href="/captures/{row['id']}">{html(row['title'])}</a></th>
   <td>{html(source_for_url(row['canonical_url']) or 'LinkedIn')}</td><td>{html(company)}</td><td>{html(row['city'])}</td>
   <td>{html(technologies)}</td><td>{in_house}</td>
-  <td>{match_score(row['match_score'])}</td>
+  <td>{match_score(row['display_score'])}</td>
   <td><form action="/applied" method="post">
     <input type="hidden" name="capture_id" value="{row['id']}">
     <button class="applied-button" name="action" value="{action}" title="{button_hint}">{button}</button>
@@ -246,7 +252,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
 def job_detail(conn, capture_id):
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """SELECT c.*, j.linkedin_job_id, j.canonical_url
+            f"""SELECT c.*, {DISPLAY_SCORE} AS display_score, j.linkedin_job_id, j.canonical_url
                FROM public.linkedin_job_captures AS c
                JOIN public.linkedin_jobs AS j ON j.id = c.job_id
                WHERE c.id = %s AND NOT c.company_blacklisted""",
@@ -287,7 +293,10 @@ def job_detail(conn, capture_id):
         f"<div><dt>{label}</dt><dd>{html(value)}</dd></div>" for label, value in fields if value
     )
     description = re.sub(r"\n(?:[^\S\n]*\n){2,}", "\n\n", row["description"])
-    score = match_score(row["match_score"]) or "Not scored yet"
+    score = match_score(row["display_score"]) or "Not scored yet"
+    score_note = ""
+    if row["display_score"] != row["match_score"]:
+        score_note = f' <span>(Base score {match_score(row["match_score"])}, outsourcing adjustment −10)</span>'
     details = format_match_details(row["match_details"])
     if row["clearance_required"]:
         clearance_note = "<p>Security clearance is required by this posting.</p>"
@@ -310,7 +319,7 @@ def job_detail(conn, capture_id):
 <h1>{html(row['title'])}</h1>
 <dl>{metadata}</dl>
 {link}
-<section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong></p>
+<section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong>{score_note}</p>
   {clearance_note}{details}</section>
 <section class="description"><h2>Application documents</h2><ul class="documents">{"".join(downloads)}</ul></section>
 <section class="description"><h2>Job description</h2><div class="prewrap">{html(description)}</div></section>
