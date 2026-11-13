@@ -109,7 +109,7 @@ Choose a command for the scope you want.
 - All results from the current page onward — `venv/bin/python run.py --tab 1 --all-pages`
 - First job on the current page with a matching title — `venv/bin/python run.py --tab 1 --title "Senior Java Engineer" --limit 1`
 
-Keep the debugging window and the search tab open during collection. After the first attempted job, the collector waits 5 to 30 seconds before each subsequent attempt. The terminal prints the PostgreSQL run ID, saved jobs, and failures. When the run finishes, the collector checks public company information for pending jobs in that run.
+Keep the debugging window and the search tab open during collection. After the first attempted job, the collector waits 3 to 10 seconds before each subsequent attempt. The terminal prints the PostgreSQL run ID, saved jobs, and failures. When the run finishes, the collector checks public company information for pending jobs in that run.
 
 Each invocation creates a new run unless you supply `--run-id`. To continue the same search after a trial or interruption, return to its first results page and pass the run ID shown in the terminal. Replace `2` with the actual run ID.
 

@@ -35,7 +35,7 @@ SEMANTIC_CARD_PREFIX = "job-card-component-ref-"
 SEMANTIC_CARDS = f'[role="button"][componentkey^="{SEMANTIC_CARD_PREFIX}"]'
 SEMANTIC_CARD_TITLE = 'p span[aria-hidden="true"]'
 NEXT_PAGE = "Next"
-CAPTURE_DELAY_SECONDS = (5, 30)
+CAPTURE_DELAY_SECONDS = (3, 10)
 SEMANTIC_DETAILS = {
     "panel": '[data-sdui-screen$=".SemanticJobDetails"]',
     "identity": 'a[href*="/jobs/view/"]',

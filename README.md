@@ -74,7 +74,7 @@ venv/bin/python run.py --list-tabs
 venv/bin/python run.py --tab 1 --title "Lead Software Engineer" --limit 1
 ```
 
-Replace `1` with the actual tab number. Without `--title` and `--limit`, the script collects up to five jobs from the current page. After the first attempted job, it waits 5 to 30 seconds before each subsequent attempt. Page selectors are defined at the top of [the LinkedIn collector](collector/linkedin.py).
+Replace `1` with the actual tab number. Without `--title` and `--limit`, the script collects up to five jobs from the current page. After the first attempted job, it waits 3 to 10 seconds before each subsequent attempt. Page selectors are defined at the top of [the LinkedIn collector](collector/linkedin.py).
 
 To collect every results page, select the first page in Chrome and run:
 
