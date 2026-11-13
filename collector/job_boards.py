@@ -143,7 +143,7 @@ def seek_result_urls(page, first_cards):
             raise BoardAccessError(f"SEEK returned HTTP {response.status}.")
         check_board_access(page, "SEEK")
         visited.add(url)
-        page.locator(SELECTORS["SEEK"]["cards"]).first.wait_for(state="visible", timeout=8000)
+        page.locator(SELECTORS["SEEK"]["cards"]).filter(visible=True).first.wait_for(state="visible", timeout=8000)
         cards = board_cards(page, "SEEK", None)
         number += 1
 
