@@ -29,6 +29,7 @@ For a new database, apply [the schema](sql/schema.sql). For an existing database
 5. [Capture classification and technologies](sql/add_capture_classification.sql)
 6. [Company blacklist](sql/add_company_blacklist.sql)
 7. [Applied jobs](sql/add_applied_jobs.sql)
+8. [Excluded jobs](sql/add_excluded_jobs.sql)
 
 After applying the capture classification migration to an existing database, run `venv/bin/python -m storage.posting` to classify earlier captures and extract their key technologies.
 
@@ -109,3 +110,5 @@ format and delivery checks for preparing application documents. Confirm the late
 [Markdown cover letter template](templates/cover_letter.md) for the letter
 structure and export the completed letter as DOCX. The Job Library serves files placed in the capture's
 application directory using the download names specified in the guidance.
+
+Use **Exclude** in the list or job detail to hide a posting from captured and applied views. Open **Excluded jobs** and select **Restore** to show it again. The job detail also supports **Applied** and **Undo**.

@@ -40,10 +40,10 @@ h2 { font-size: 1.25rem; margin: 0 0 1rem; }
 .source-col { width: 8%; }
 .company-col { width: 14%; }
 .city-col { width: 10%; }
-.technologies-col { width: 21%; }
+.technologies-col { width: 19%; }
 .delivery-col { width: 7%; }
 .score-col { width: 8%; }
-.applied-col { width: 9%; }
+.applied-col { width: 11%; }
 .applied-button { font: inherit; font-size: 0.78rem; padding: 0.1rem 0.35rem; cursor: pointer; }
 .library { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 2rem; }
 .dates { display: grid; gap: 0.35rem; }
@@ -83,3 +83,7 @@ dd { margin: 0.2rem 0 0; }
 .blacklist-form input, .blacklist-form button, .blacklist-companies button { font: inherit; padding: 0.45rem 0.65rem; }
 .blacklist-companies { list-style: none; padding: 0; }
 .blacklist-companies li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #e3e9e3; padding: 0.75rem 0; }
+
+.status-buttons, .job-views { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.job-views { gap: 1rem; margin-bottom: 1rem; }
+.detail .status-buttons { margin: 0.75rem 0; }

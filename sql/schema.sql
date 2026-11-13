@@ -34,7 +34,8 @@ CREATE TABLE linkedin_jobs (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     linkedin_job_id text UNIQUE,
     canonical_url text NOT NULL UNIQUE,
-    applied_at timestamptz
+    applied_at timestamptz,
+    excluded_at timestamptz
 );
 
 CREATE TABLE linkedin_company_blacklist (

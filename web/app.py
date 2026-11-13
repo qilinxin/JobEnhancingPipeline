@@ -161,15 +161,39 @@ def company_blacklist(conn):
 """)
 
 
-def list_jobs(conn, selected_date, *, show_applied=False):
+def status_buttons(row, *, detail=False):
+    buttons = []
+    for status, label, undo in (
+        ("applied", "Applied", "Undo"),
+        ("excluded", "Exclude", "Restore"),
+    ):
+        marked = row[f"{status}_at"] is not None
+        action = "unmark" if marked else "mark"
+        text = undo if marked else label
+        endpoint = "/applied" if status == "applied" else "/excluded"
+        return_to = '<input type="hidden" name="return_to" value="detail">' if detail else ""
+        buttons.append(f"""
+<form action="{endpoint}" method="post">
+  <input type="hidden" name="capture_id" value="{row['id']}">
+  {return_to}
+  <button class="applied-button" name="action" value="{action}">{text}</button>
+</form>""")
+    return f'<div class="status-buttons">{"".join(buttons)}</div>'
+
+
+def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
+    status_filter = (
+        "j.excluded_at IS NOT NULL" if show_excluded else
+        f"j.excluded_at IS NULL AND (j.applied_at IS NOT NULL) = %s AND {VISIBLE_CAPTURES}"
+    )
+    status_params = () if show_excluded else (show_applied,)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""SELECT (captured_at AT TIME ZONE %s)::date AS day,
-                      count(DISTINCT c.job_id) FILTER (WHERE {VISIBLE_CAPTURES}
-                                        AND (j.applied_at IS NOT NULL) = %s) AS total
+                      count(DISTINCT c.job_id) FILTER (WHERE {status_filter}) AS total
                FROM public.linkedin_job_captures c JOIN public.linkedin_jobs j ON j.id = c.job_id
                GROUP BY 1 ORDER BY 1 DESC""",
-            (SYDNEY.key, show_applied),
+            (SYDNEY.key, *status_params),
         )
         dates = cur.fetchall()
         if not dates:
@@ -182,28 +206,25 @@ def list_jobs(conn, selected_date, *, show_applied=False):
                    SELECT DISTINCT ON (c.job_id)
                           c.id, title, company, location, city, posted_label, captured_at,
                           {DISPLAY_SCORE} AS display_score, delivery_reviewed_at, reviewed_delivery_model,
-                          key_technologies, j.canonical_url
+                          key_technologies, j.canonical_url, j.applied_at, j.excluded_at
                    FROM public.linkedin_job_captures c JOIN public.linkedin_jobs j ON j.id = c.job_id
                    WHERE captured_at >= %s AND captured_at < %s
-                     AND {VISIBLE_CAPTURES}
-                     AND (j.applied_at IS NOT NULL) = %s
+                     AND {status_filter}
                    ORDER BY c.job_id, captured_at DESC, c.id DESC
                ) AS latest
                ORDER BY display_score DESC NULLS LAST, captured_at DESC, id DESC""",
-            (start, end, show_applied),
+            (start, end, *status_params),
         )
         rows = cur.fetchall()
-    applied_query = "&amp;applied=1" if show_applied else ""
+    status_query = "&amp;excluded=1" if show_excluded else "&amp;applied=1" if show_applied else ""
     tabs = []
     for entry in dates:
         capture_day = entry["day"]
         active = ' aria-current="page"' if capture_day == day else ""
-        tabs.append(f'<a href="/?date={capture_day.isoformat()}{applied_query}"{active}>'
+        tabs.append(f'<a href="/?date={capture_day.isoformat()}{status_query}"{active}>'
                     f'<time datetime="{capture_day.isoformat()}">{capture_day:%d %b %Y}</time>'
                     f'<span class="date-count">{entry["total"]}</span></a>')
     items = []
-    action, button = ("unmark", "Undo") if show_applied else ("mark", "Applied")
-    button_hint = "Undo applied status" if show_applied else "Mark as applied"
     for row in rows:
         company, _, _ = posting_fields(row)
         technologies = ", ".join(row["key_technologies"])
@@ -213,10 +234,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
   <td>{html(source_for_url(row['canonical_url']) or 'LinkedIn')}</td><td>{html(company)}</td><td>{html(row['city'])}</td>
   <td>{html(technologies)}</td><td>{in_house}</td>
   <td>{match_score(row['display_score'])}</td>
-  <td><form action="/applied" method="post">
-    <input type="hidden" name="capture_id" value="{row['id']}">
-    <button class="applied-button" name="action" value="{action}" title="{button_hint}">{button}</button>
-  </form></td>
+  <td>{status_buttons(row)}</td>
 </tr>""")
     content = f"""<div class="table-wrap" role="region" aria-label="Job list" tabindex="0">
   <table class="jobs" aria-label="Jobs captured on {day:%d %B %Y}">
@@ -230,16 +248,17 @@ def list_jobs(conn, selected_date, *, show_applied=False):
     <tbody>{"".join(items)}</tbody>
   </table>
 </div>""" if items else (
-        '<p class="empty">No applied jobs on this date.</p>' if show_applied
-        else '<p class="empty">No jobs match the current filters on this date.</p>'
+        '<p class="empty">No jobs in this view on this date.</p>'
     )
     count = f"{len(rows)} {'job' if len(rows) == 1 else 'jobs'}"
-    heading = "Applied jobs" if show_applied else "Captured jobs"
-    toggle_label = "Back to captured jobs" if show_applied else "Applied jobs"
-    toggle_query = "" if show_applied else "&amp;applied=1"
+    heading = "Excluded jobs" if show_excluded else "Applied jobs" if show_applied else "Captured jobs"
     return layout(heading, f"""
 <h1>{heading}</h1>
-<p><a href="/?date={day.isoformat()}{toggle_query}">{toggle_label}</a></p>
+<nav class="job-views" aria-label="Job status">
+  <a href="/?date={day.isoformat()}">Captured jobs</a>
+  <a href="/?date={day.isoformat()}&amp;applied=1">Applied jobs</a>
+  <a href="/?date={day.isoformat()}&amp;excluded=1">Excluded jobs</a>
+</nav>
 <div class="library">
   <aside><h2>Capture dates</h2><nav class="dates" aria-label="Capture dates">{"".join(tabs)}</nav></aside>
   <section aria-labelledby="selected-date">
@@ -252,7 +271,7 @@ def list_jobs(conn, selected_date, *, show_applied=False):
 def job_detail(conn, capture_id):
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"""SELECT c.*, {DISPLAY_SCORE} AS display_score, j.linkedin_job_id, j.canonical_url
+            f"""SELECT c.*, {DISPLAY_SCORE} AS display_score, j.linkedin_job_id, j.canonical_url, j.applied_at, j.excluded_at
                FROM public.linkedin_job_captures AS c
                JOIN public.linkedin_jobs AS j ON j.id = c.job_id
                WHERE c.id = %s AND NOT c.company_blacklisted""",
@@ -319,6 +338,7 @@ def job_detail(conn, capture_id):
 <h1>{html(row['title'])}</h1>
 <dl>{metadata}</dl>
 {link}
+{status_buttons(row, detail=True)}
 <section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong>{score_note}</p>
   {clearance_note}{details}</section>
 <section class="description"><h2>Application documents</h2><ul class="documents">{"".join(downloads)}</ul></section>
@@ -363,7 +383,8 @@ class JobsHandler(BaseHTTPRequestHandler):
                     self.respond(HTTPStatus.BAD_REQUEST, layout("Invalid date", "<h1>Invalid date</h1>"))
                     return
                 with connect() as conn:
-                    body = list_jobs(conn, selected_date, show_applied=query.get("applied") == ["1"])
+                    body = list_jobs(conn, selected_date, show_applied=query.get("applied") == ["1"],
+                                     show_excluded=query.get("excluded") == ["1"])
             elif target.path == "/blacklist":
                 with connect() as conn:
                     body = company_blacklist(conn)
@@ -424,7 +445,7 @@ class JobsHandler(BaseHTTPRequestHandler):
             self.respond(HTTPStatus.OK, body)
 
     def do_POST(self):
-        if self.path not in {"/blacklist", "/applied"}:
+        if self.path not in {"/blacklist", "/applied", "/excluded"}:
             self.respond(HTTPStatus.NOT_FOUND, layout("Page not found", "<h1>Page not found</h1>"))
             return
         port = self.server.server_port
@@ -448,9 +469,10 @@ class JobsHandler(BaseHTTPRequestHandler):
                     capture_id = form.get("capture_id", [""])[0]
                     if action not in {"mark", "unmark"} or not re.fullmatch(r"[0-9]{1,18}", capture_id):
                         raise ValueError("Invalid application action.")
+                    status_column = "excluded_at" if self.path == "/excluded" else "applied_at"
                     capture = conn.execute(
-                        """UPDATE public.linkedin_jobs AS j
-                           SET applied_at = CASE WHEN %s THEN COALESCE(j.applied_at, now()) ELSE NULL END
+                        f"""UPDATE public.linkedin_jobs AS j
+                           SET {status_column} = CASE WHEN %s THEN COALESCE(j.{status_column}, now()) ELSE NULL END
                            FROM public.linkedin_job_captures AS c
                            WHERE c.id = %s AND c.job_id = j.id AND NOT c.company_blacklisted
                            RETURNING c.captured_at""",
@@ -461,8 +483,10 @@ class JobsHandler(BaseHTTPRequestHandler):
                         return
                     captured_at, = capture
                     redirect = f"/?date={captured_at.astimezone(SYDNEY).date().isoformat()}"
-                    if action == "unmark":
-                        redirect += "&applied=1"
+                    if form.get("return_to") == ["detail"]:
+                        redirect = f"/captures/{int(capture_id)}"
+                    elif action == "unmark":
+                        redirect += "&excluded=1" if status_column == "excluded_at" else "&applied=1"
         except ValueError as exc:
             self.respond(HTTPStatus.BAD_REQUEST, layout("Invalid request", f"<p>{html(exc)}</p>"))
             return
