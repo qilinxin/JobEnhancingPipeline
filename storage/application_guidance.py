@@ -68,12 +68,16 @@ Add or remove evidence bullets according to the posting.
 Verify the company, role, location and date. Follow the employer's requested
 format or selection criteria when provided.
 
-Keep the letter to one page. Default to a brief opening, evidence of fit and a
+Aim to use most of one page while staying within one page. Honour a shorter
+format requested by the employer. Default to a brief opening, evidence of fit and a
 brief closing. State the role and strongest relevant background in the opening.
 Introduce the evidence with “My experience aligns…” and use up to six bullets.
-Use fewer when the strongest evidence fits in fewer points. Tie each bullet
-to a JD requirement with a specific project or responsibility. Bold key
-technologies selectively. Use relevant evidence to set the length.
+Prioritise the JD's main day-to-day responsibilities and mandatory requirements.
+For each point, connect a responsibility or requirement to a specific verified
+project, explain what the applicant did and include the outcome where known.
+Identify transferable experience accurately. Omit unsupported skills and avoid
+restating the JD or repeating examples to add length. Use fewer bullets when
+fewer strong examples are available. Bold key technologies selectively.
 
 A short three-paragraph letter is also suitable when the applicant's motivation
 or location preference is central, such as for Qantas Adelaide. Close with the
@@ -93,7 +97,10 @@ William_<Company>_Coverletter.docx. If names collide for the same company,
 add up to two role words after the company name.
 
 Before delivery, check that the resume is as close to two pages as practical
-and the cover letter fits one page. Verify the company and role names, confirm
+and the cover letter fits and uses most of one page unless the employer requests
+a shorter format. Check the rendered page for whitespace and verify that the
+letter addresses the main JD responsibilities and requirements. Verify the
+company and role names, confirm
 the accuracy of key claims, and check that previously removed content remains
 omitted.
 """.strip()
