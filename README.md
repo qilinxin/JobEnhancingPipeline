@@ -101,7 +101,7 @@ To create a new run for historical data, replace `--run-id` with `--search-url '
 
 The [application guidance](storage/application_guidance.py) defines the
 eligibility checks, score thresholds, resume editing rules, cover letter
-format and delivery checks for preparing application documents. Confirm the
-latest resume baseline and supply the named cover letter template before
-preparing documents. The Job Library serves files placed in the capture's
+format and delivery checks for preparing application documents. Confirm the latest resume baseline before preparing documents. Use the
+[Markdown cover letter template](templates/cover_letter.md) for the letter
+structure and export the completed letter as DOCX. The Job Library serves files placed in the capture's
 application directory using the download names specified in the guidance.

@@ -2,7 +2,7 @@
 
 DIRECT_MIN_SCORE = 75
 OUTSOURCED_MIN_SCORE = 85
-COVER_LETTER_TEMPLATE = "William_Macquarie_Coverletter(2).docx"
+COVER_LETTER_TEMPLATE = "templates/cover_letter.md"
 APPLICANT_NAME = "William(Linxin) Qi"
 WORK_RIGHTS = (
     "Unrestricted Australian work rights on a Temporary Graduate visa (subclass 485), "
@@ -58,7 +58,10 @@ Choose verified evidence that fits the posting:
 """.strip()
 
 COVER_LETTER_GUIDE = f"""
-Use {COVER_LETTER_TEMPLATE} by default and preserve its fonts and layout.
+Use {COVER_LETTER_TEMPLATE} as the default content and structure template.
+Replace its placeholders with confirmed information and omit optional fields
+that do not apply. Use “Hiring Manager” when the recipient is unknown.
+Add or remove evidence bullets according to the posting.
 Verify the company, role, location and date. Follow the employer's requested
 format or selection criteria when provided.
 
