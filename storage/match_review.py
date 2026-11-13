@@ -16,7 +16,7 @@ from .metadata import posting_fields
 from .postgres import connect
 
 BASELINE = Path(__file__).resolve().parents[1] / "resume_baseline.md"
-JAVA_FACTORS = {"core": 1.0, "alternative": 0.9, "peripheral": 0.8, "absent": 0.75}
+JAVA_FACTORS = {"core": 1.0, "alternative": 1.0, "peripheral": 0.8, "absent": 0.75}
 FIELDS = {"id": "integer", "score": "number", "details": "string", "java_role": "string"}
 SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["matches"],
@@ -52,8 +52,12 @@ work does not establish ownership of business-critical SaaS or reporting platfor
 
 Classify Java's role from the actual responsibilities and required stack:
 core when Java/JVM is central to the work, alternative when explicitly accepted
-as one of several primary languages, peripheral when only optional or incidental,
+as one of several primary technical paths, peripheral when only optional or incidental,
 and absent when Java is neither part of the stack nor an explicit alternative.
+For requirements such as "one or more of Java, Python or React/TypeScript",
+score the strongest supported path against the stated depth. Do not deduct
+for the other paths unless separately required. Distinguish willingness to
+become full-stack from prior full-stack experience.
 A search keyword or JavaScript does not establish a Java requirement. Return the
 classification in java_role and briefly explain it in the details. The application
 applies the Java adjustment, so return the unadjusted normalized score.
