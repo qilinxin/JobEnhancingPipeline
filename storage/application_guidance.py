@@ -42,8 +42,9 @@ sections only when explicitly requested.
 
 Put the strongest evidence first within each role. Aim for one contribution
 per bullet and one or two lines per bullet. Bold key technologies or outcomes
-selectively. Aim for two pages. Compress repeated material and omit weakly
-related bullets or open-source projects where appropriate. Respect previous
+selectively. Aim to use most of two pages when the baseline has enough relevant
+experience. Preserve useful evidence and compress repeated material first. Omit
+weakly related bullets or open-source projects where appropriate. Respect previous
 instructions to remove content.
 
 Verify all technologies, responsibilities and outcomes against confirmed
@@ -97,8 +98,8 @@ Deliver editable DOCX files named William_<Company>_resume.docx and
 William_<Company>_Coverletter.docx. If names collide for the same company,
 add up to two role words after the company name.
 
-Before delivery, check that the resume is as close to two pages as practical
-and the cover letter fits and uses most of one page unless the employer requests
+Before delivery, check the rendered resume for page count and excessive blank
+space on page two. Check that the cover letter fits and uses most of one page unless the employer requests
 a shorter format. Check the rendered page for whitespace and verify that the
 letter addresses the main JD responsibilities and requirements. Verify the
 company and role names, confirm
