@@ -101,11 +101,11 @@ def application_company(row):
 
 
 def application_filename(row, kind, suffix, *, include_role=False):
-    parts = [application_company(row)]
+    parts = ["William", application_company(row)]
     if include_role:
         role_words = re.findall(r"[^\W_]+", unescape(row["title"] or ""))[:2]
         parts.extend(word[:20] for word in role_words)
-    parts.append(kind.replace("-", ""))
+    parts.append("Coverletter" if kind == "cover-letter" else kind)
     return "_".join(parts) + suffix
 
 

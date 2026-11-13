@@ -95,3 +95,13 @@ To create a new run for historical data, replace `--run-id` with `--search-url '
 - `public.linkedin_collection_runs` stores each run and the search URL used.
 - `public.linkedin_jobs` stores job identities and canonical URLs.
 - `public.linkedin_job_captures` stores the details for each run. The job identity and capture are written in one transaction. `captured_at` records when the full description was read, and imports retain the original timestamp.
+
+
+## Application document guidelines
+
+The [application guidance](storage/application_guidance.py) defines the
+eligibility checks, score thresholds, resume editing rules, cover letter
+format and delivery checks for preparing application documents. Confirm the
+latest resume baseline and supply the named cover letter template before
+preparing documents. The Job Library serves files placed in the capture's
+application directory using the download names specified in the guidance.
