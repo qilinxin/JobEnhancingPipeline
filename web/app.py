@@ -330,6 +330,8 @@ def job_detail(conn, capture_id):
                 f'<a href="/captures/{capture_id}/download/{kind}">'
                 f'Download {label.lower()} ({path.suffix[1:].upper()})</a>'
             )
+        else:
+            downloads.append(f'<span class="document-pending">{label} not generated yet</span>')
     return layout(row["title"], f"""
 <div class="detail">
 <a class="back" href="/?date={row['captured_at'].astimezone(SYDNEY).date().isoformat()}">‹ Back to captured jobs</a>
