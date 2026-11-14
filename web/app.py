@@ -287,7 +287,7 @@ def job_detail(conn, capture_id):
         source = "LinkedIn"
     if source:
         link = (
-            f'<a class="external" href="{html(row["canonical_url"])}" '
+            f'<a href="{html(row["canonical_url"])}" '
             f'target="_blank" rel="noopener">View on {source}</a>'
         )
     company, _, _ = posting_fields(row)
@@ -327,21 +327,18 @@ def job_detail(conn, capture_id):
         path = application_file(capture_id, kind)
         if path:
             downloads.append(
-                f'<li><a href="/captures/{capture_id}/download/{kind}">'
-                f'Download {label.lower()} ({path.suffix[1:].upper()})</a></li>'
+                f'<a href="/captures/{capture_id}/download/{kind}">'
+                f'Download {label.lower()} ({path.suffix[1:].upper()})</a>'
             )
-        else:
-            downloads.append(f"<li>{label} <span>Not available yet</span></li>")
     return layout(row["title"], f"""
 <div class="detail">
 <a class="back" href="/?date={row['captured_at'].astimezone(SYDNEY).date().isoformat()}">‹ Back to captured jobs</a>
 <h1>{html(row['title'])}</h1>
 <dl>{metadata}</dl>
-{link}
+<nav class="detail-links" aria-label="Job and application links">{link}{"".join(downloads)}</nav>
 {status_buttons(row, detail=True)}
 <section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong>{score_note}</p>
   {clearance_note}{details}</section>
-<section class="description"><h2>Application documents</h2><ul class="documents">{"".join(downloads)}</ul></section>
 <section class="description"><h2>Job description</h2><div class="prewrap">{html(description)}</div></section>
 <section class="description"><h2>Model</h2>{delivery_review}</section>
 </div>""")
