@@ -28,6 +28,7 @@ CLEARANCE_OPTIONAL = re.compile(
 CLEARANCE_REQUIRED = re.compile(
     rf"(?:\b(?:must|requires?|required to|need to|eligible to|ability to)\b.{{0,115}}{CLEARANCE_TERM}|"
     rf"{CLEARANCE_TERM}.{{0,65}}\b(?:required|mandatory|essential|a must|is must|ability to obtain)\b|"
+    r"^\W*(?:active|current|valid)\s+(?:(?:government|defence)\s+)?security clearance\W*$|"
     r"^\W*(?:(?:government |defence )?security clearance\s*:\s*)?"
     r"(?:(?:active|current|valid)\s+)?"
     r"(?:nv[\s-]*[12]|negative vetting(?:\s+level)?\s*(?:one|two|[12])|positive vetting|baseline clearance)"

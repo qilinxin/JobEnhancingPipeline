@@ -274,9 +274,12 @@ def backfill_job_metadata(conn):
                    SET city = %s,
                        match_score = CASE WHEN %s OR company_blacklisted THEN 0
                                           WHEN clearance_required THEN NULL ELSE match_score END,
+                       match_details = CASE WHEN company_blacklisted THEN match_details
+                                            WHEN %s THEN 'The posting requires security clearance. The match score is 0.'
+                                            WHEN clearance_required THEN NULL ELSE match_details END,
                        clearance_required = %s
                    WHERE id = %s""",
-                (city, clearance_required, clearance_required, row["id"]),
+                (city, clearance_required, clearance_required, clearance_required, row["id"]),
             )
     return len(rows)
 
