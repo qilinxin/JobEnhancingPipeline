@@ -1,4 +1,4 @@
-"""Score new and reposted jobs against the local resume baseline."""
+"""Score new and reposted jobs against the local resume master."""
 
 import argparse
 import json
@@ -11,11 +11,12 @@ from pathlib import Path
 from psycopg import Error
 from psycopg.rows import dict_row
 
+from .application_guidance import RESUME_MASTER
 from .delivery_review import codex_json
 from .metadata import posting_fields
 from .postgres import connect
 
-BASELINE = Path(__file__).resolve().parents[1] / "resume_baseline.md"
+RESUME_PATH = Path(__file__).resolve().parents[1] / RESUME_MASTER
 JAVA_FACTORS = {"core": 1.0, "alternative": 1.0, "peripheral": 0.8, "absent": 0.75}
 FIELDS = {"id": "integer", "score": "number", "details": "string", "java_role": "string"}
 SCHEMA = {
@@ -95,9 +96,9 @@ def score_run(run_id, *, rescore=False, capture_id=None):
             captures = cur.fetchall()
             if not captures:
                 return 0
-            resume = BASELINE.read_text(encoding="utf-8").partition("## Summary")[2].strip()
+            resume = RESUME_PATH.read_text(encoding="utf-8").partition("## Summary\n")[2].strip()
             if not resume:
-                raise ValueError("The resume baseline is missing its Summary section.")
+                raise ValueError("The resume master is missing its Summary section or resume content.")
             print(f"Resume matching for run {run_id}: {len(captures)} jobs pending.", flush=True)
             saved = 0
             for group in batched(captures, 14):

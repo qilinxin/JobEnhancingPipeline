@@ -6,17 +6,17 @@
 
 Dear {{recipient_name}},
 
-I am writing to apply for the {{role_title}} position at {{company}}. {{most_relevant_background}}
+I am applying for the {{role_title}} position at {{company}}. {{strongest_relevant_experience}}
 
-My experience aligns with the role in these areas.
+{{brief_transition_to_the_evidence}}
 
-- {{evidence_of_fit_1}}
-- {{evidence_of_fit_2}}
-- {{evidence_of_fit_3}}
+- **{{responsibility_or_requirement_1}}.** {{verified_context_action_and_result_1}}
+- **{{responsibility_or_requirement_2}}.** {{verified_context_action_and_result_2}}
+- **{{responsibility_or_requirement_3}}.** {{verified_context_action_and_result_3}}
+- **{{responsibility_or_requirement_4}}.** {{verified_context_action_and_result_4}}
+- **{{responsibility_or_requirement_5}}.** {{verified_context_action_and_result_5}}
 
-{{motivation_for_the_role}} {{location_work_rights_or_availability_if_relevant}}
-
-I would welcome the opportunity to discuss my application.
+{{specific_reason_for_applying}} {{confirmed_location_work_rights_or_availability_if_relevant}}
 
 Yours sincerely,\
 {{applicant_name}}

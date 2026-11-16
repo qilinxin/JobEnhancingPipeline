@@ -106,9 +106,22 @@ eligibility and role screening. Git ignores the profile.
 
 The [application guidance](storage/application_guidance.py) defines the
 eligibility checks, score thresholds, resume editing rules, cover letter
-format and delivery checks for preparing application documents. Confirm the latest resume baseline before preparing documents. Use the
-[Markdown cover letter template](templates/cover_letter.md) for the letter
-structure and export the completed letter as DOCX. The Job Library serves files placed in the capture's
-application directory using the download names specified in the guidance.
+format and delivery checks for preparing application documents. Use the
+[Markdown resume master](resume_master.md) as the source of verified bullets
+and the confirmed Word resume as the layout template. For each application,
+select the strongest evidence for the posting and adapt the wording where the
+meaning stays the same. Add newly confirmed responsibilities and corrections
+to the matching role in the master. The scoring command also uses
+the same Markdown master for resume matching, starting at the Summary section.
+On a new checkout, place your private master at `resume_master.md` in the
+project root with a `## Summary` heading. Git ignores this file.
+
+For cover letters, map the
+posting's main responsibilities and mandatory requirements to verified evidence
+before drafting. Use the [Markdown cover letter template](templates/cover_letter.md)
+for structure and inspect the rendered one-page DOCX before delivery. The Job
+Library serves files placed in the capture's application directory using the
+download names specified in the guidance. Collection and scoring do not
+generate application documents.
 
 Use **Exclude** in the list or job detail to hide a posting from captured and applied views. Open **Excluded jobs** and select **Restore** to show it again. The job detail also supports **Applied** and **Undo**.

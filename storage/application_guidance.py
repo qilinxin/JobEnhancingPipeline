@@ -3,6 +3,7 @@
 DIRECT_MIN_SCORE = 75
 OUTSOURCED_MIN_SCORE = 85
 COVER_LETTER_TEMPLATE = "templates/cover_letter.md"
+RESUME_MASTER = "resume_master.md"
 APPLICANT_PROFILE = "applicant_profile.md"
 APPLICANT_NAME = "William(Linxin) Qi"
 WORK_RIGHTS = (
@@ -34,11 +35,25 @@ An explicit instruction to prepare documents can override the score threshold.
 Continue to disclose any eligibility gaps and keep all document claims factual.
 """.strip()
 
-RESUME_GUIDE = """
-Use the latest applicant-confirmed resume as the editing baseline. Preserve its
-fonts, layout, section structure and official job titles. Edit only bullets
-relevant to the posting. Change the Summary, Education, Achievements or other
-sections only when explicitly requested.
+RESUME_GUIDE = f"""
+Use {RESUME_MASTER} as the source of verified experience and the latest
+applicant-confirmed Word resume as the layout template. Preserve the fonts,
+layout, section structure and official job titles. Change the Summary,
+Education, Achievements or other sections only when explicitly requested.
+
+Read the full job description and identify its core responsibilities,
+mandatory requirements and preferred skills. Select the strongest relevant
+bullets from the master, keeping each under its original role. Lightly adapt
+the phrasing to the employer's terminology when the meaning is equivalent.
+Preserve the technology, scope, ownership and results of each contribution.
+If direct experience is missing, use clearly applicable transferable evidence
+or report the gap to the applicant.
+
+Keep job-specific wording in the application copy. When the applicant confirms
+a new responsibility, technology or outcome, add it to the master under the
+correct role. Correct an existing bullet when the applicant clarifies it and
+merge overlapping bullets when they describe the same contribution. Keep
+skills with unconfirmed project attribution in the skills section.
 
 Put the strongest evidence first within each role. Aim for one contribution
 per bullet and one or two lines per bullet. Bold key technologies or outcomes
@@ -63,30 +78,40 @@ Choose verified evidence that fits the posting:
 """.strip()
 
 COVER_LETTER_GUIDE = f"""
-Use {COVER_LETTER_TEMPLATE} as the default content and structure template.
-Replace its placeholders with confirmed information and omit optional fields
-that do not apply. Use “Hiring Manager” when the recipient is unknown.
-Add or remove evidence bullets according to the posting.
-Verify the company, role, location and date. Follow the employer's requested
-format or selection criteria when provided.
+Before drafting, read the full posting and identify its main responsibilities,
+mandatory requirements and preferred skills. Map each main responsibility and
+mandatory requirement to a verified example, a confirmed eligibility fact or
+a gap. Use the confirmed resume and applicant profile as evidence. Prioritise
+the work the applicant would do day to day. Report material gaps to the
+applicant and distinguish transferable experience from direct experience.
+Where the posting lists alternatives, use the verified alternative that meets
+the requirement. Keep commercial, internship and personal project experience
+distinct.
 
-Aim to use most of one page while staying within one page. Honour a shorter
-format requested by the employer. Default to a brief opening, evidence of fit and a
-brief closing. State the role and strongest relevant background in the opening.
-Introduce the evidence with “My experience aligns…” and use up to six bullets.
-Prioritise the JD's main day-to-day responsibilities and mandatory requirements.
-For each point, connect a responsibility or requirement to a specific verified
-project, explain what the applicant did and include the outcome where known.
-Identify transferable experience accurately. Omit unsupported skills and avoid
-restating the JD or repeating examples to add length. Use fewer bullets when
-fewer strong examples are available. Bold key technologies selectively.
+Use {COVER_LETTER_TEMPLATE} for structure. Open with the exact role and company
+and the strongest relevant experience. For a well-matched role with a detailed
+posting, aim for about 300 to 370 body words and five distinct evidence points.
+Use four to six points when supported by the posting and the applicant's
+experience. Body length excludes contact details, date, greeting and sign-off.
+Follow any employer-specified format, word limit or selection criteria. Use a
+shorter letter if the posting is narrow or there are fewer verified examples.
 
-A short three-paragraph letter is also suitable when the applicant's motivation
-or location preference is central, such as for Qantas Adelaide. Close with the
-reason for applying. Include location, work rights and availability when relevant.
-Use Sydney, NSW by default. For Adelaide-only roles, describe confirmed
-relocation willingness. For Qantas Adelaide, mention the applicant's Adelaide
-preference and interest in the new PIC project where relevant.
+Give each evidence point a clear focus. Name the project or context, explain
+what the applicant did and include a verified result or concrete deliverable.
+Give major responsibilities separate space when combining them would obscure
+the applicant's contribution. For engineering roles, cover requirements and
+collaboration, implementation, testing, deployment, production support and
+performance where the posting calls for them and evidence supports them.
+Mention tools in the context of the work. Avoid repeating examples, copying
+the posting, listing keywords or inventing outcomes to reach a word count.
+
+Close with a role-specific reason for applying and any relevant confirmed work
+arrangements. Use Sydney, NSW as the applicant's location by default. For an
+on-site role, state full-time on-site availability in the posting city when
+relevant and mention relocation for roles outside Sydney. For Qantas Adelaide,
+mention the applicant's Adelaide preference and interest in the new PIC project
+where relevant. Verify the company, role, location and date. Use “Hiring
+Manager” when the recipient is unknown and remove all placeholder text.
 
 Use the name {APPLICANT_NAME} in both documents. When needed, use:
 - {WORK_RIGHTS}
@@ -99,10 +124,12 @@ William_<Company>_Coverletter.docx. If names collide for the same company,
 add up to two role words after the company name.
 
 Before delivery, check the rendered resume for page count and excessive blank
-space on page two. Check that the cover letter fits and uses most of one page unless the employer requests
-a shorter format. Check the rendered page for whitespace and verify that the
-letter addresses the main JD responsibilities and requirements. Verify the
-company and role names, confirm
-the accuracy of key claims, and check that previously removed content remains
-omitted.
+space on page two. Compare the final cover letter against the posting and the
+evidence identified before drafting. Restore any missing material match with
+verified evidence and tell the applicant about material gaps. Render the DOCX
+and inspect the whole page. It should occupy most of one page with readable
+type, normal margins and room for the signature. If a detailed, well-matched
+letter looks sparse, check for missing evidence before adjusting spacing.
+Follow employer-specified length and format. Verify the company and role names,
+the accuracy of key claims and that previously removed content remains omitted.
 """.strip()
