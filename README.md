@@ -125,3 +125,9 @@ download names specified in the guidance. Collection and scoring do not
 generate application documents.
 
 Use **Exclude** in the list or job detail to hide a posting from captured and applied views. Open **Excluded jobs** and select **Restore** to show it again. The job detail also supports **Applied** and **Undo**.
+
+### Mandatory citizenship and permanent residency
+
+After creating a new database or upgrading an existing one, apply `storage/sql/add_citizenship_screening.sql`. It adds `citizenship_pr_required`, detects mandatory Australian citizenship/PR restrictions, backfills existing captures, and enforces a zero score and explanatory match details through a database trigger and constraint. The rule reflects the confirmed subclass 485 visa. Explicit visa alternatives, optional preferences and unrelated citizenship references do not trigger it. Reapply the migration to refresh the detector and backfill after rule changes. Changing the applicant's residency status requires reviewing this rule.
+
+Run `venv/bin/python -m unittest discover -s tests -p test_citizenship_screening.py -v` against the migrated local database. The rescore enforcement test rolls back its attempted update.
