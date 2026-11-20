@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import re
+import unicodedata
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -64,11 +65,56 @@ def key_technologies(description):
     return sorted(scores, key=scores.get, reverse=True)[:5]
 
 
+# Contact redaction and board formatting must not create new posting identities.
+EMAIL = re.compile(r"[\w.+•-]+@[\w.-]+\.[a-z]{2,}", re.I)
+PHONE = re.compile(
+    r"(?<!\w)(?:\+61[ \t]*|0[23478]|1[38])"
+    r"(?:[ \t().-]*[\d•]){7,10}(?!\w)"
+)
+COMPANY_REGION = re.compile(r"\s*\((?:ACT|QLD|NSW|VIC|WA|SA|NT|TAS)\)\s*$", re.I)
+LOCATION_SUFFIX = re.compile(
+    r"\b(?:new south wales|queensland|victoria|western australia|south australia|"
+    r"australian capital territory|northern territory|tasmania|nsw|qld|vic|wa|sa|act|nt|tas|australia)\b",
+    re.I,
+)
+
+
+def posting_text(value):
+    text = unicodedata.normalize("NFKC", value or "").casefold()
+    return " ".join(re.sub(r"[^\w+#$<>]+", " ", text).split())
+
+
+def posting_location(location, description=""):
+    modes = (("onsite", r"\bon[ -]?site\b"), ("hybrid", r"\bhybrid\b"),
+             ("remote", r"\bremote\b"))
+    mode = next((name for name, pattern in modes if re.search(pattern, location or "", re.I)), "")
+    if not mode:
+        if re.search(r"\bfull[ -]time on[ -]?site\b", description, re.I):
+            mode = "onsite"
+        elif re.search(r"\b(?:fully|100%) remote\b", description, re.I):
+            mode = "remote"
+    location = re.sub(r"\([^)]*\)", "", location or "")
+    # Prefer the metro name when a board includes both suburb and city.
+    for city in ("sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra", "hobart", "darwin"):
+        if re.search(r"\b" + city + r"\b", location, re.I):
+            return city + "|" + mode
+    locality = posting_text(LOCATION_SUFFIX.sub("", location))
+    return locality + "|" + mode if locality else ""
+
+
 def posting_features(capture):
-    company, _, posted = posting_fields(capture)
-    # Boards format the same location differently. Match the employer, title and JD.
-    normalized = [" ".join((value or "").casefold().split()) for value in
-                  (capture["title"], company, capture["description"])]
+    company, location, posted = posting_fields(capture)
+    description = EMAIL.sub(" contactemail ", capture["description"])
+    description = PHONE.sub(" contactphone ", description)
+    description = re.sub(r"^\s*Job Description\s+", "", description, flags=re.I)
+    description = re.sub(r"\s*(?:#hybrid|#LI|Apply for This Job)\s*$", "", description, flags=re.I)
+    normalized = [
+        posting_text(capture["title"]),
+        posting_text(COMPANY_REGION.sub("", company or "")),
+        posting_location(location, capture["description"]),
+        posting_text(description),
+    ]
+    # Include location so identical templates in different cities stay separate.
     fingerprint = hashlib.sha256("\x1f".join(normalized).encode()).hexdigest() if all(normalized) else None
     return fingerprint, bool(REPOST.search(posted or "")), key_technologies(capture["description"])
 
@@ -105,7 +151,7 @@ def classify_capture(repost, window, previous):
     return "duplicate"
 
 
-def backfill(conn):
+def backfill(conn, *, fingerprints_only=False):
     seen_jobs, seen_postings = defaultdict(list), defaultdict(list)
     seen_in_run = set()
     with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
@@ -113,6 +159,10 @@ def backfill(conn):
                        FROM public.linkedin_job_captures ORDER BY captured_at, id FOR UPDATE""")
         for capture in cur.fetchall():
             fingerprint, repost, technologies = posting_features(capture)
+            if fingerprints_only:
+                cur.execute("UPDATE public.linkedin_job_captures SET posting_fingerprint = %s WHERE id = %s",
+                            (fingerprint, capture["id"]))
+                continue
             job, run = capture["job_id"], capture["run_id"]
             repeated_in_run = fingerprint and (run, fingerprint) in seen_in_run
             window = posting_window(capture["posted_at"], capture["posted_label"], capture["captured_at"])
@@ -130,9 +180,12 @@ def backfill(conn):
 def main():
     from .postgres import connect
 
-    argparse.ArgumentParser(description="Backfill capture classification and key technologies.").parse_args()
+    parser = argparse.ArgumentParser(description="Backfill capture classification and key technologies.")
+    parser.add_argument("--fingerprints-only", action="store_true",
+                        help="Refresh posting identities while preserving classifications and application status.")
+    args = parser.parse_args()
     with connect() as conn:
-        backfill(conn)
+        backfill(conn, fingerprints_only=args.fingerprints_only)
 
 
 if __name__ == "__main__":
