@@ -210,6 +210,7 @@ def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
                    FROM public.linkedin_job_captures c JOIN public.linkedin_jobs j ON j.id = c.job_id
                    WHERE captured_at >= %s AND captured_at < %s
                      AND {status_filter}
+                     AND c.display_duplicate_of IS NULL
                    ORDER BY c.job_id, captured_at DESC, c.id DESC
                ) AS latest
                ORDER BY display_score DESC NULLS LAST, captured_at DESC, id DESC""",
