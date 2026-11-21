@@ -20,6 +20,8 @@ BEGIN
                       from '(sydney|melbourne|brisbane|perth|adelaide|canberra|hobart|darwin)');
     IF company_name = '' OR city IS NULL THEN RETURN NULL; END IF;
     body := regexp_replace(lower(coalesce(jd,'')), E'(?m)^\\s*desired skills and experience\\s*$', '', 'g');
+    -- Some job boards mask the mailbox while retaining the email domain.
+    body := regexp_replace(body, '[[:alnum:]_.+%•*-]+@([[:alnum:].-]+\.[[:alpha:]]{2,})', '@\1', 'g');
     SELECT array_agg(token ORDER BY token) INTO words FROM (
         SELECT DISTINCT token FROM regexp_split_to_table(body, '[^[:alnum:]]+') token WHERE token <> ''
     ) vocabulary;

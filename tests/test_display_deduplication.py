@@ -17,6 +17,14 @@ class DisplayDeduplicationTests(unittest.TestCase):
             self.assertNotEqual(key,identity(city='Melbourne VIC'))
             self.assertNotEqual(key,identity(text=body.replace('Java 17','Java 21')))
             self.assertIsNone(identity(text='Java and Spring Boot'))
+            self.assertEqual(
+                identity(text=body + ' Contact careers@example.com.au'),
+                identity(text=body + ' Contact ••••@example.com.au'),
+            )
+            self.assertNotEqual(
+                identity(text=body + ' Contact careers@example.com.au'),
+                identity(text=body + ' Contact careers@another.com.au'),
+            )
 
     def test_confirmed_hydrogen_pair(self):
         with connect() as conn:
