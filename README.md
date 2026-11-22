@@ -137,3 +137,9 @@ Run `venv/bin/python -m unittest discover -s tests -p test_citizenship_screening
 Apply `storage/sql/add_display_deduplication.sql` after the schema and other migrations. It retains raw captures, records `display_duplicate_of`, and marks equivalent same-day postings from different job identities as duplicates before scoring or generation. Matching requires the same normalized title, company, metro city and complete unique-word vocabulary from a substantial JD. Company legal suffixes, whitespace, a duplicated body and the standard repeated skills heading do not create separate jobs. Different cities, levels and technology versions remain distinct. The earliest eligible capture is retained; search also excludes linked duplicate captures.
 
 Verify with `venv/bin/python -m unittest discover -s tests -p test_display_deduplication.py -v`.
+
+### Live Captured jobs layout
+
+The approved preview is implemented by `web/library_view.py`, `web/library.css` and `web/library.js`. The list uses real capture dates, final scores, delivery models, document links and application status forms. Global keyword search remains server-side; source, minimum-score and 75+ filters narrow the loaded view. Comfortable or compact density is stored as a browser preference. The mobile date selector provides access to the same capture history as the desktop sidebar. Detail and filter pages retain their existing routes and styling.
+
+CSS and JavaScript are served as same-origin assets under the existing security policy; inline scripts/styles are not enabled. Run `venv/bin/python -m unittest discover -s tests -p test_library_view.py -v` for rendering and escaping checks.

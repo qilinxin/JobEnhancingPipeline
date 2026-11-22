@@ -18,6 +18,7 @@ from collector.job_boards import source_for_url
 from storage.blacklist import set_blacklisted
 from storage.metadata import posting_fields
 from storage.postgres import connect
+from web.library_view import render_library, CSS as LIBRARY_CSS, SCRIPT as LIBRARY_SCRIPT
 
 SYDNEY = ZoneInfo("Australia/Sydney")
 STYLESHEET = Path(__file__).with_name("jobs_web.css").read_bytes()
@@ -217,56 +218,8 @@ def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
             (start, end, *status_params),
         )
         rows = cur.fetchall()
-    status_query = "&amp;excluded=1" if show_excluded else "&amp;applied=1" if show_applied else ""
-    tabs = []
-    for entry in dates:
-        capture_day = entry["day"]
-        active = ' aria-current="page"' if capture_day == day else ""
-        tabs.append(f'<a href="/?date={capture_day.isoformat()}{status_query}"{active}>'
-                    f'<time datetime="{capture_day.isoformat()}">{capture_day:%d %b %Y}</time>'
-                    f'<span class="date-count">{entry["total"]}</span></a>')
-    items = []
-    for row in rows:
-        company, _, _ = posting_fields(row)
-        technologies = ", ".join(row["key_technologies"])
-        in_house = {"In-house": "Y", "Outsourced": "N"}.get(model_label(row), "")
-        items.append(f"""<tr>
-  <th scope="row"><a class="job" href="/captures/{row['id']}">{html(row['title'])}</a></th>
-  <td>{html(source_for_url(row['canonical_url']) or 'LinkedIn')}</td><td>{html(company)}</td><td>{html(row['city'])}</td>
-  <td>{html(technologies)}</td><td>{in_house}</td>
-  <td>{match_score(row['display_score'])}</td>
-  <td>{status_buttons(row)}</td>
-</tr>""")
-    content = f"""<div class="table-wrap" role="region" aria-label="Job list" tabindex="0">
-  <table class="jobs" aria-label="Jobs captured on {day:%d %B %Y}">
-    <colgroup><col class="title-col"><col class="source-col"><col class="company-col"><col class="city-col">
-      <col class="technologies-col"><col class="delivery-col">
-      <col class="score-col"><col class="applied-col"></colgroup>
-    <thead><tr><th scope="col">Job title</th><th scope="col">Source</th><th scope="col">Company</th>
-      <th scope="col">City</th>
-      <th scope="col">Key technologies</th><th scope="col">In-house</th>
-      <th scope="col" aria-sort="descending">Match score</th><th scope="col">Status</th></tr></thead>
-    <tbody>{"".join(items)}</tbody>
-  </table>
-</div>""" if items else (
-        '<p class="empty">No jobs in this view on this date.</p>'
-    )
-    count = f"{len(rows)} {'job' if len(rows) == 1 else 'jobs'}"
-    heading = "Excluded jobs" if show_excluded else "Applied jobs" if show_applied else "Captured jobs"
-    return layout(heading, f"""
-<h1>{heading}</h1>
-<nav class="job-views" aria-label="Job status">
-  <a href="/?date={day.isoformat()}">Captured jobs</a>
-  <a href="/?date={day.isoformat()}&amp;applied=1">Applied jobs</a>
-  <a href="/?date={day.isoformat()}&amp;excluded=1">Excluded jobs</a>
-</nav>
-<div class="library">
-  <aside><h2>Capture dates</h2><nav class="dates" aria-label="Capture dates">{"".join(tabs)}</nav></aside>
-  <section aria-labelledby="selected-date">
-    <div class="list-heading"><h2 id="selected-date">{day:%d %B %Y}</h2><span>{count}</span></div>
-    {content}
-  </section>
-</div>""")
+    return render_library(rows, dates, day, show_applied=show_applied,
+                          show_excluded=show_excluded)
 
 
 def job_detail(conn, capture_id):
@@ -359,7 +312,7 @@ class JobsHandler(BaseHTTPRequestHandler):
             if fallback != filename:
                 disposition += f"; filename*=UTF-8''{quote(filename, safe='')}"
             self.send_header("Content-Disposition", disposition)
-        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -369,6 +322,12 @@ class JobsHandler(BaseHTTPRequestHandler):
         target = urlsplit(self.path)
         if target.path == "/style.css":
             self.respond(HTTPStatus.OK, STYLESHEET, "text/css; charset=utf-8")
+            return
+        if target.path == "/library.css":
+            self.respond(HTTPStatus.OK, LIBRARY_CSS, "text/css; charset=utf-8")
+            return
+        if target.path == "/library.js":
+            self.respond(HTTPStatus.OK, LIBRARY_SCRIPT, "text/javascript; charset=utf-8")
             return
         capture = CAPTURE_PATH.fullmatch(target.path)
         try:
