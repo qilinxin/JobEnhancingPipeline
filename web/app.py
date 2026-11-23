@@ -66,31 +66,33 @@ def format_match_details(value):
 
 
 def format_requirement_ledger(ledger):
+    """Show compact score dimensions; retain the source ledger in PostgreSQL."""
     if not isinstance(ledger, dict) or ledger.get("version") != 1:
         return ""
-    groups = []
+    rows = []
     for category, label in CATEGORY_LABELS.items():
-        items = []
-        for item in ledger.get("requirements", []):
-            if item.get("category") != category:
+        levels = (4, 3, 2, 1) if category in {"technical", "preferred"} else (None,)
+        for level in levels:
+            items = [item for item in ledger.get("requirements", [])
+                     if item["category"] == category and (level is None or item["required_level"] == level)]
+            if not items:
                 continue
-            status = {"met": "Evidenced", "partial": "Partially evidenced", "unverified": "Needs confirmation"}.get(item["status"], "Needs confirmation")
-            quote = f'<blockquote>{html(re.sub(r"\*\*|`", "", item["resume_quote"]))}</blockquote>' if item["resume_quote"] else '<p class="evidence-gap">Not evidenced in the current resume master. Confirm your experience to update it.</p>'
-            items.append(f'''<li class="requirement {html(item['status'])}">
-<div class="requirement-heading"><h4>{html(item['name'])}</h4><span class="requirement-status">{status}</span><strong>{item['earned']:.2f} / {item['available']:.2f} points</strong></div>
-<p><strong>JD requirement:</strong> {html(item['jd_quote'])}</p>
-<p><strong>Required depth:</strong> {html(LEVELS[item['required_level']])} · weight {item['required_level']}<br><strong>Verified depth:</strong> {html(LEVELS[item['evidence_level']])}</p>
-{quote}<p>{html(item['explanation'])}</p></li>''')
-        if items:
-            groups.append(f'<section class="requirement-group"><h3>{label}</h3><ul class="requirement-list">{"".join(items)}</ul></section>')
-    summaries = []
-    for state, label in (("met", "Evidenced technologies"), ("partial", "Partially evidenced technologies"), ("unverified", "Technologies to confirm")):
-        names = [html(item["name"]) for item in ledger.get("requirements", [])
-                 if item["category"] == "technical" and item["status"] == state]
-        if names:
-            summaries.append(f'<li><strong>{label}:</strong> {", ".join(names)}</li>')
-    summary = '<ul class="technology-summary">' + ''.join(summaries) + '</ul>' if summaries else ''
-    return '<div class="requirement-ledger"><h3>Requirement-by-requirement evidence</h3><p>Depth weights: familiarity / exposure = 1; working knowledge = 2; hands-on proficiency = 3; expert / production ownership = 4. A core requirement without a stated depth uses 3. These weights divide each category’s points; they are not fixed bonus points.</p><p>Item points = category allocation × requirement weight / category weight total × verified depth / required depth (capped at 100% credit). Categories are normalized to 100 before Java alignment and outsourcing adjustments. Rounding may cause small differences when adding displayed item values.</p><p>“Needs confirmation” means the current master lacks evidence, not that you have never used the technology. Confirm the role, work and depth so the master can be corrected.</p>' + summary + ''.join(groups) + '</div>'
+            dimension = html(label)
+            if level is not None:
+                dimension += f'<small>{html(LEVELS[level])} · weight {level}</small>'
+            evidence = []
+            for state, status in (("met", "Evidenced"), ("partial", "Partial"), ("unverified", "To confirm")):
+                names = [html(item["name"]) for item in items if item["status"] == state]
+                if names:
+                    evidence.append(f'<span class="evidence-summary {state}"><strong>{status}:</strong> {", ".join(names)}.</span>')
+            earned = sum(item["earned"] for item in items)
+            available = sum(item["available"] for item in items)
+            rows.append(f'<tr><th scope="row">{dimension}</th><td class="requirement-score">{earned:.2f} / {available:.2f}</td><td>{" ".join(evidence)}</td></tr>')
+    return ('<div class="requirement-ledger"><table class="requirement-table"><thead><tr><th scope="col">Dimension</th><th scope="col">Score</th><th scope="col">Evidence / gaps</th></tr></thead><tbody>'
+            + ''.join(rows) + '</tbody></table>'
+            + f'<p class="rubric-note">Base score {ledger["base_score"]:.2f} · Java alignment ×{ledger.get("java_factor", 1):g}. '
+              'Depth weights: expert 4, proficient 3, working knowledge 2, familiarity 1. '
+              '“To confirm” means not evidenced in the current master.</p></div>')
 
 
 def model_label(row):
@@ -307,6 +309,8 @@ def job_detail(conn, capture_id):
         score_note = f' <span>(Base score {match_score(row["match_score"])}, outsourcing adjustment −{CLIENT_DELIVERY_PENALTY})</span>'
     details = format_match_details(row["match_details"])
     ledger = format_requirement_ledger(row.get("match_breakdown"))
+    if ledger:
+        details = ""
     if row["clearance_required"]:
         clearance_note = "<p>Security clearance is required by this posting.</p>"
     else:

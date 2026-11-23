@@ -35,5 +35,7 @@ class RequirementTests(unittest.TestCase):
         output = format_requirement_ledger(ledger)
         self.assertIn("&lt;script&gt;", output)
         self.assertNotIn("<script>", output)
-        self.assertIn("100.00 / 100.00 points", output)
+        self.assertIn("100.00 / 100.00", output)
+        self.assertIn('class="requirement-table"', output)
+        self.assertNotIn("<blockquote>", output)
         self.assertIn("Hands-on proficiency", output)

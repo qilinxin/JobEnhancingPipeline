@@ -9,6 +9,12 @@ experience, domain and responsibility requirements. Do not invent requirements.
 Do not count generic delivery experience as evidence of a named technology.
 Java API work alone does not establish ownership of a SaaS or reporting platform.
 Willingness to become full-stack does not establish prior full-stack experience.
+Comma-separated lists are not automatically alternatives. For example REST,
+GraphQL and gRPC must be separate items unless explicitly interchangeable in
+the JD. Split Spring and Hibernate, and independently listed cloud providers.
+For an explicit alternative, name the supported path in the requirement name
+and identify the other accepted paths and unverified skills in the explanation;
+never imply every technology in an alternative list is evidenced.
 Group explicit interchangeable alternatives into ONE requirement and assess the
 best supported path (e.g. Java OR Python). Split independently required skills,
 including lists of cloud, testing, security or delivery tools. Do not duplicate the

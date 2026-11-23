@@ -173,8 +173,8 @@ Apply `storage/sql/add_match_breakdown.sql` to an existing database after the
 citizenship screening migration. New tables include the `match_breakdown` JSONB
 column in the schema; apply the migration to install its invalidation trigger.
 The scorer stores JD quotes, required depth, verified resume quotes, evidence
-depth and computed item points in this column. The detail page renders these as
-lists, including unverified and partially evidenced requirements.
+depth and computed item points in this column. The detail page renders a compact dimension/score/evidence table, grouping
+technologies by required depth and naming evidenced, partial and unverified skills.
 
 `prompts/resume_matching.md` defines depth interpretation; `scoring/requirements.py`
 validates quotes and calculates category-normalized points. Missing evidence means

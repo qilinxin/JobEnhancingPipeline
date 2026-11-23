@@ -1,5 +1,6 @@
 """Validate requirement evidence and calculate an auditable score ledger."""
 import re
+import unicodedata
 
 CATEGORY_POINTS = {"technical": 45, "experience": 25, "domain": 20, "preferred": 10}
 CATEGORY_LABELS = {"technical": "Required technical skills", "experience": "Experience and scope",
@@ -9,6 +10,8 @@ LEVELS = {0: "No evidence", 1: "Familiarity / exposure", 2: "Working knowledge",
 
 
 def normalized(text):
+    text = unicodedata.normalize("NFKC", text).translate(str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"}))
+    text = text.replace("**", "").replace("`", "")
     return re.sub(r"\s+", " ", text).strip().casefold()
 
 
@@ -27,10 +30,10 @@ def calculate_requirements(items, description, resume):
             raise ValueError("Empty or duplicate requirement.")
         seen.add(key)
         if not normalized(item["jd_quote"]) or normalized(item["jd_quote"]) not in normalized(description):
-            raise ValueError("Requirement quote is not present in the job description.")
+            raise ValueError(f"Requirement quote is not present in the job description: {item['name']}")
         quote = normalized(item["resume_quote"])
         if evidence and (not quote or quote not in normalized(resume)):
-            raise ValueError("Evidence quote is not present in the verified resume master.")
+            raise ValueError(f"Evidence quote is not present in the verified resume master: {item['name']}")
         totals[category] = totals.get(category, 0) + level
     normalization = 100 / sum(CATEGORY_POINTS[c] for c in totals)
     ledger = []

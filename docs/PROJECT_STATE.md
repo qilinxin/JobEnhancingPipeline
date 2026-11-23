@@ -44,3 +44,17 @@ Scheduling remains managed in Codex. This task does not change schedules. The
 repository supplies the daily prompt and executable stages, not schedule state,
 browser authentication, Codex credentials or database passwords. Renaming the
 local directory requires external launchers to use its new absolute path.
+
+## Requirement analysis
+
+Per-requirement source quotes, depth weights, evidence and points are persisted in
+PostgreSQL `linkedin_job_captures.match_breakdown`. Scoring rules and validation
+live in `prompts/resume_matching.md` and `scoring/requirements.py`. Rejected results
+are saved under ignored `local/scoring_review/` for correction; valid existing
+scores remain unchanged when a replacement fails validation. Successful rescoring
+removes the corresponding rejection file.
+
+The match detail UI uses a compact three-column table (dimension, score, evidence
+and gaps). Group technical/preferred requirements by required depth; aggregate
+experience/domain rows. Keep quotes and individual item calculations in the
+database, rather than expanding them into long UI cards.

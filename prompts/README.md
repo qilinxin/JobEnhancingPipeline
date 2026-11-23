@@ -81,5 +81,5 @@ ignored `local/policy/`; initial migration keywords alone are not the current li
 Scoring now persists a versioned `match_breakdown` JSONB ledger per capture. Each
 JD requirement includes the exact requirement quote, depth weight, verified master
 evidence, evidence level and computed available/earned points.
-`scoring/requirements.py` performs arithmetic; `web/app.py` displays the list.
+`scoring/requirements.py` performs arithmetic; `web/app.py` displays a compact grouped table; full source quotes remain in PostgreSQL.
 See the README migration and date-enrichment instructions.

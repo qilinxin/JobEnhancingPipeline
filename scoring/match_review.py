@@ -43,7 +43,7 @@ SCHEMA = {"type": "object", "additionalProperties": False, "required": ["matches
 PROMPT = (Path(__file__).resolve().parents[1] / "prompts/resume_matching.md").read_text(encoding="utf-8")
 
 
-def score_run(run_id, *, rescore=False, capture_id=None, missing_breakdown=False):
+def score_run(run_id, *, rescore=False, capture_id=None, missing_breakdown=False, capture_day=None):
     try:
         with connect() as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
@@ -65,8 +65,9 @@ def score_run(run_id, *, rescore=False, capture_id=None, missing_breakdown=False
                      AND (%s OR c.match_score IS NULL OR NULLIF(btrim(c.match_details), '') IS NULL OR c.match_breakdown IS NULL)
                      AND (%s::bigint IS NULL OR c.id = %s)
                      AND (NOT %s OR c.match_breakdown IS NULL)
+                     AND (%s::date IS NULL OR (c.captured_at AT TIME ZONE 'Australia/Sydney')::date = %s)
                    ORDER BY c.id""",
-                (run_id, rescore, capture_id, capture_id, missing_breakdown),
+                (run_id, rescore, capture_id, capture_id, missing_breakdown, capture_day, capture_day),
             )
             captures = cur.fetchall()
             if not captures:
@@ -94,6 +95,12 @@ def score_run(run_id, *, rescore=False, capture_id=None, missing_breakdown=False
                         try:
                             score, ledger, breakdown = calculate_requirements(result["requirements"], row["description"], resume)
                         except ValueError as error:
+                            review_folder = RESUME_PATH.parents[1] / "scoring_review"
+                            review_folder.mkdir(parents=True, exist_ok=True)
+                            (review_folder / f"{row['id']}.json").write_text(
+                                json.dumps({"error": str(error), "result": result}, ensure_ascii=False, indent=2),
+                                encoding="utf-8",
+                            )
                             print(f"Capture {row['id']} requires review: {error}", file=sys.stderr)
                             continue
                         details = f"Score breakdown: {breakdown}.\n\n{details}"
@@ -110,6 +117,8 @@ def score_run(run_id, *, rescore=False, capture_id=None, missing_breakdown=False
                             (round(score * factor, 2), details, Jsonb(ledger), row["id"], row["captured_at"], row["description"], rescore),
                         )
                         saved += cur.rowcount
+                        if cur.rowcount:
+                            (RESUME_PATH.parents[1] / "scoring_review" / f"{row['id']}.json").unlink(missing_ok=True)
                     conn.commit()
                     print(f"Resume matching for run {run_id}: {saved}/{len(captures)} saved.", flush=True)
             return int(saved != len(captures))
@@ -130,7 +139,7 @@ def main():
     if args.date:
         with connect() as conn:
             runs = conn.execute("SELECT DISTINCT run_id FROM linkedin_job_captures WHERE (captured_at AT TIME ZONE 'Australia/Sydney')::date = %s ORDER BY run_id", (args.date,)).fetchall()
-        return int(any([score_run(run[0], rescore=True, missing_breakdown=args.missing_breakdown) for run in runs]))
+        return int(any([score_run(run[0], rescore=True, missing_breakdown=args.missing_breakdown, capture_day=args.date) for run in runs]))
     return score_run(args.run_id, rescore=args.rescore, capture_id=args.capture_id, missing_breakdown=args.missing_breakdown)
 
 
