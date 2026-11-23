@@ -8,38 +8,23 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from socketserver import TCPServer
-from urllib.parse import parse_qs, quote, urlsplit
-from zoneinfo import ZoneInfo
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from psycopg import Error
 from psycopg.rows import dict_row
 
+from documents.files import DOCUMENT_TYPES, document_file
+from web.library_view import render_shell, render_library, CSS as LIBRARY_CSS, SCRIPT as LIBRARY_SCRIPT
 from collector.job_boards import source_for_url
 from storage.blacklist import set_blacklisted
 from storage.metadata import posting_fields
 from storage.postgres import connect
-from web.library_view import render_shell, render_library, CSS as LIBRARY_CSS, SCRIPT as LIBRARY_SCRIPT
+from storage.title_blacklist import TITLE_ALLOWED, set_title_keyword
+from storage.visibility import CLIENT_DELIVERY_PENALTY, DISPLAY_SCORE, SYDNEY, VISIBLE_CAPTURES
 
-SYDNEY = ZoneInfo("Australia/Sydney")
 STYLESHEET = LIBRARY_CSS
-APPLICATION_FILES = Path(__file__).resolve().parents[1] / "application_files"
 CAPTURE_PATH = re.compile(r"/captures/([0-9]{1,18})(?:/download/(resume|cover-letter))?")
 DOCUMENTS = {"resume": "Resume", "cover-letter": "Cover letter"}
-DOCUMENT_TYPES = {
-    ".pdf": "application/pdf",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-}
-DISPLAY_SCORE = """CASE
-    WHEN c.match_score IS NOT NULL AND c.delivery_reviewed_at IS NOT NULL
-         AND c.reviewed_delivery_model = 'Client delivery'
-    THEN GREATEST(c.match_score - 10, 0)
-    ELSE c.match_score
-END"""
-VISIBLE_CAPTURES = f"""
-    c.capture_kind <> 'duplicate' AND NOT c.company_blacklisted AND NOT c.clearance_required
-    AND (c.match_score IS NULL OR ({DISPLAY_SCORE}) >= 60)
-"""
-
 
 def html(value):
     return escape(str(value)) if value is not None else ""
@@ -88,18 +73,6 @@ def model_label(row):
     }.get(row["reviewed_delivery_model"], "Unconfirmed")
 
 
-def application_file(capture_id, kind):
-    for suffix in DOCUMENT_TYPES:
-        path = APPLICATION_FILES / str(capture_id) / f"{kind}{suffix}"
-        try:
-            resolved = path.resolve(strict=True)
-        except (OSError, RuntimeError):
-            continue
-        if resolved == path and resolved.is_file():
-            return resolved
-    return None
-
-
 def application_company(row):
     company, _, _ = posting_fields(row)
     company_name = unescape(company or "").split(" (", 1)[0]
@@ -135,18 +108,40 @@ def company_blacklist(conn):
 <button name="action" value="remove">Remove</button></form></li>"""
         for name, reason, count in rows
     )
-    return layout("Company blacklist", f"""
+    return layout("Company filters", f"""
 <div class="overline">Workspace preferences</div><h1>Company filters</h1>
+<p class="subtitle">Hide companies you do not want to include in your job search.</p>
 <form class="blacklist-form" action="/blacklist" method="post">
   <label>Company name <input name="company" required maxlength="200"></label>
   <label>Reason <input name="reason" maxlength="500" placeholder="Optional"></label>
   <button name="action" value="add">Add company</button>
 </form>
-{f'<ul class="blacklist-companies">{companies}</ul>' if companies else '<p>No companies are blocked.</p>'}
+{f'<ul class="blacklist-companies">{companies}</ul>' if companies else '<p>No company filters have been added.</p>'}
 """)
 
 
-def status_buttons(row, *, detail=False):
+def title_blacklist(conn):
+    rows = conn.execute("SELECT keyword FROM public.linkedin_title_blacklist ORDER BY keyword")
+    items = "".join(
+        f"""<li><strong>{html(keyword)}</strong>
+<form action="/title-blacklist" method="post">
+  <input type="hidden" name="keyword" value="{html(keyword)}">
+  <button name="action" value="remove">Remove</button>
+</form></li>"""
+        for (keyword,) in rows
+    )
+    return layout("Title filters", f"""
+<div class="overline">Workspace preferences</div><h1>Title filters</h1>
+<p>Matching job titles are skipped during collection and hidden from the Job Library.</p>
+<form class="blacklist-form" action="/title-blacklist" method="post">
+  <label>Title keyword or phrase <input name="keyword" required maxlength="200" placeholder="e.g. sales"></label>
+  <button name="action" value="add">Add keyword</button>
+</form>
+{f'<ul class="blacklist-companies">{items}</ul>' if items else '<p>No title filters have been added.</p>'}
+""")
+
+
+def status_buttons(row, *, keyword=""):
     buttons = []
     for status, label, undo in (
         ("applied", "Applied", "Undo"),
@@ -156,17 +151,17 @@ def status_buttons(row, *, detail=False):
         action = "unmark" if marked else "mark"
         text = undo if marked else label
         endpoint = "/applied" if status == "applied" else "/excluded"
-        return_to = '<input type="hidden" name="return_to" value="detail">' if detail else ""
+        search_field = f'<input type="hidden" name="q" value="{html(keyword)}">' if keyword else ""
         buttons.append(f"""
 <form action="{endpoint}" method="post">
   <input type="hidden" name="capture_id" value="{row['id']}">
-  {return_to}
+  {search_field}
   <button class="applied-button" name="action" value="{action}">{text}</button>
 </form>""")
     return f'<div class="status-buttons">{"".join(buttons)}</div>'
 
 
-def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
+def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False, keyword=""):
     status_filter = (
         "j.excluded_at IS NOT NULL" if show_excluded else
         f"j.excluded_at IS NULL AND (j.applied_at IS NOT NULL) = %s AND {VISIBLE_CAPTURES}"
@@ -181,11 +176,17 @@ def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
             (SYDNEY.key, *status_params),
         )
         dates = cur.fetchall()
-        if not dates:
-            return layout("Job Library", '<h1>Captured jobs</h1><p class="empty">No jobs have been captured yet.</p>')
-        day = selected_date or dates[0]["day"]
-        start = datetime.combine(day, time.min, tzinfo=SYDNEY)
-        end = start + timedelta(days=1)
+        day = selected_date or (dates[0]["day"] if dates else datetime.now(SYDNEY).date())
+        if keyword:
+            job_filter = f"""NOT c.company_blacklisted AND {TITLE_ALLOWED}
+                AND strpos(lower(concat_ws(' ', c.title, c.company, c.city, c.location,
+                    array_to_string(c.key_technologies, ' '), c.description)), lower(%s)) > 0"""
+            job_params = (keyword,)
+        else:
+            start = datetime.combine(day, time.min, tzinfo=SYDNEY)
+            end = start + timedelta(days=1)
+            job_filter = f"c.captured_at >= %s AND c.captured_at < %s AND {status_filter}"
+            job_params = (start, end, *status_params)
         cur.execute(
             f"""SELECT * FROM (
                    SELECT DISTINCT ON (c.job_id)
@@ -193,17 +194,16 @@ def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
                           {DISPLAY_SCORE} AS display_score, delivery_reviewed_at, reviewed_delivery_model,
                           key_technologies, j.canonical_url, j.applied_at, j.excluded_at
                    FROM public.linkedin_job_captures c JOIN public.linkedin_jobs j ON j.id = c.job_id
-                   WHERE captured_at >= %s AND captured_at < %s
-                     AND {status_filter}
+                   WHERE {job_filter}
                      AND c.display_duplicate_of IS NULL
                    ORDER BY c.job_id, captured_at DESC, c.id DESC
                ) AS latest
                ORDER BY display_score DESC NULLS LAST, captured_at DESC, id DESC""",
-            (start, end, *status_params),
+            job_params,
         )
         rows = cur.fetchall()
     return render_library(rows, dates, day, show_applied=show_applied,
-                          show_excluded=show_excluded)
+                          show_excluded=show_excluded, keyword=keyword)
 
 
 def detail_capture_history(conn, selected_day):
@@ -275,7 +275,7 @@ def job_detail(conn, capture_id):
     score = match_score(row["display_score"]) or "Not scored yet"
     score_note = ""
     if row["display_score"] != row["match_score"]:
-        score_note = f' <span>(Base score {match_score(row["match_score"])}, outsourcing adjustment −10)</span>'
+        score_note = f' <span>(Base score {match_score(row["match_score"])}, outsourcing adjustment −{CLIENT_DELIVERY_PENALTY})</span>'
     details = format_match_details(row["match_details"])
     if row["clearance_required"]:
         clearance_note = "<p>Security clearance is required by this posting.</p>"
@@ -284,7 +284,7 @@ def job_detail(conn, capture_id):
         details = details or "<p>No match details available yet.</p>"
     downloads = []
     for kind, label in DOCUMENTS.items():
-        path = application_file(capture_id, kind)
+        path = document_file(capture_id, kind)
         if path:
             downloads.append(
                 f'<a href="/captures/{capture_id}/download/{kind}">'
@@ -298,7 +298,7 @@ def job_detail(conn, capture_id):
 <div class="overline">Opportunity overview</div><h1>{html(row['title'])}</h1>
 <dl>{metadata}</dl>
 <nav class="detail-links" aria-label="Job and application links">{link}{"".join(downloads)}</nav>
-{status_buttons(row, detail=True)}
+{status_buttons(row)}
 <section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong>{score_note}</p>
   {clearance_note}{details}</section>
 <section class="description"><h2>Job description</h2><div class="prewrap">{html(description)}</div></section>
@@ -339,6 +339,10 @@ class JobsHandler(BaseHTTPRequestHandler):
         try:
             if target.path == "/":
                 query = parse_qs(target.query)
+                keyword = query.get("q", [""])[0].strip()
+                if len(keyword) > 200 or "\x00" in keyword:
+                    self.respond(HTTPStatus.BAD_REQUEST, layout("Invalid search", "<h1>Invalid search keyword</h1>"))
+                    return
                 value = query.get("date", [None])[0]
                 try:
                     selected_date = date.fromisoformat(value) if value else None
@@ -348,11 +352,14 @@ class JobsHandler(BaseHTTPRequestHandler):
                     self.respond(HTTPStatus.BAD_REQUEST, layout("Invalid date", "<h1>Invalid date</h1>"))
                     return
                 with connect() as conn:
-                    body = list_jobs(conn, selected_date, show_applied=query.get("applied") == ["1"],
-                                     show_excluded=query.get("excluded") == ["1"])
+                    body = list_jobs(conn, selected_date, show_applied=not keyword and query.get("applied") == ["1"],
+                                     show_excluded=not keyword and query.get("excluded") == ["1"], keyword=keyword)
             elif target.path == "/blacklist":
                 with connect() as conn:
                     body = company_blacklist(conn)
+            elif target.path == "/title-blacklist":
+                with connect() as conn:
+                    body = title_blacklist(conn)
             elif capture:
                 capture_id = int(capture[1])
                 kind = capture[2]
@@ -365,7 +372,7 @@ class JobsHandler(BaseHTTPRequestHandler):
                                 (capture_id,),
                             )
                             row = cur.fetchone()
-                        path = application_file(capture_id, kind) if row else None
+                        path = document_file(capture_id, kind) if row else None
                         if path:
                             try:
                                 document = path.read_bytes()
@@ -385,7 +392,7 @@ class JobsHandler(BaseHTTPRequestHandler):
                                     company_name = application_company(row).casefold()
                                     include_role = any(
                                         application_company(peer).casefold() == company_name
-                                        and application_file(peer["id"], kind)
+                                        and document_file(peer["id"], kind)
                                         for peer in cur
                                     )
                                 filename = application_filename(row, kind, path.suffix, include_role=include_role)
@@ -410,7 +417,7 @@ class JobsHandler(BaseHTTPRequestHandler):
             self.respond(HTTPStatus.OK, body)
 
     def do_POST(self):
-        if self.path not in {"/blacklist", "/applied", "/excluded"}:
+        if self.path not in {"/blacklist", "/title-blacklist", "/applied", "/excluded"}:
             self.respond(HTTPStatus.NOT_FOUND, layout("Page not found", "<h1>Page not found</h1>"))
             return
         port = self.server.server_port
@@ -426,10 +433,15 @@ class JobsHandler(BaseHTTPRequestHandler):
             with connect() as conn:
                 if self.path == "/blacklist":
                     if action not in {"add", "remove"}:
-                        raise ValueError("Invalid blacklist action.")
+                        raise ValueError("Invalid filter action.")
                     set_blacklisted(conn, form.get("company", [""])[0], form.get("reason", [""])[0],
                                     remove=action == "remove")
                     redirect = "/blacklist"
+                elif self.path == "/title-blacklist":
+                    if action not in {"add", "remove"}:
+                        raise ValueError("Invalid filter action.")
+                    set_title_keyword(conn, form.get("keyword", [""])[0], remove=action == "remove")
+                    redirect = "/title-blacklist"
                 else:
                     capture_id = form.get("capture_id", [""])[0]
                     if action not in {"mark", "unmark"} or not re.fullmatch(r"[0-9]{1,18}", capture_id):
@@ -448,8 +460,8 @@ class JobsHandler(BaseHTTPRequestHandler):
                         return
                     captured_at, = capture
                     redirect = f"/?date={captured_at.astimezone(SYDNEY).date().isoformat()}"
-                    if form.get("return_to") == ["detail"]:
-                        redirect = f"/captures/{int(capture_id)}"
+                    if keyword := form.get("q", [""])[0]:
+                        redirect = "/?" + urlencode({"q": keyword})
                     elif action == "unmark":
                         redirect += "&excluded=1" if status_column == "excluded_at" else "&applied=1"
         except ValueError as exc:

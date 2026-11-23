@@ -85,4 +85,13 @@ dd { margin: 0.2rem 0 0; }
 
 .status-buttons, .job-views { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .job-views { gap: 1rem; margin-bottom: 1rem; }
+.job-search { display: grid; gap: 0.35rem; max-width: 38rem; margin-bottom: 1.25rem; }
+.job-search label { font-weight: 700; }
+.job-search div { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.job-search input, .job-search button { font: inherit; padding: 0.45rem 0.7rem; border-radius: 0.4rem; }
+.job-search input { flex: 1 1 15rem; min-width: 0; border: 1px solid #788d85; }
+.job-search button { border: 1px solid #173831; background: #173831; color: white; cursor: pointer; }
+.job-search :is(input, button):focus-visible { outline: 3px solid #287d68; outline-offset: 2px; }
+.capture-date { display: block; margin-top: 0.25rem; color: #526660; font-weight: 400; }
+.list-heading h2 { min-width: 0; overflow-wrap: anywhere; }
 .detail .status-buttons { margin: 0.75rem 0; }

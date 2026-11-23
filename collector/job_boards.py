@@ -1,34 +1,20 @@
-"""Read Indeed Australia and SEEK results from a manually opened search tab."""
+"""Shared browser reading and capture loop for Indeed and SEEK."""
 
 import re
 import sys
 from datetime import datetime, timezone
 from random import uniform
 from time import sleep
-from urllib.parse import parse_qs, urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from storage.postgres import captured_urls, save_capture
 
-# Check these selectors in Chrome DevTools if a board changes its page layout.
-SELECTORS = {
-    "Indeed": {
-        "cards": 'a[data-jk], a.jcs-JobTitle, h2 a[href*="/viewjob"]',
-        "title": '[data-testid="jobsearch-JobInfoHeader-title"], h1',
-        "company": '[data-testid="inlineHeader-companyName"], [data-testid="company-name"]',
-        "location": '[data-testid="job-location"], [data-testid="inlineHeader-companyLocation"]',
-        "description": "#jobDescriptionText",
-        "posted_label": "time",
-    },
-    "SEEK": {
-        "cards": 'a[data-automation="jobTitle"], article a[href*="/job/"]',
-        "title": '[data-automation="job-detail-title"], h1',
-        "company": '[data-automation="advertiser-name"]',
-        "location": '[data-automation="job-detail-location"]',
-        "description": '[data-automation="jobAdDetails"]',
-        "posted_label": "time",
-    },
-}
-HOSTS = {"au.indeed.com": "Indeed", "www.seek.com.au": "SEEK", "seek.com.au": "SEEK", "au.seek.com": "SEEK"}
+from . import indeed, seek
+from storage.title_blacklist import title_exclusion_filter
+
+BOARDS = {"Indeed": indeed, "SEEK": seek}
+SELECTORS = {name: board.SELECTORS for name, board in BOARDS.items()}
+HOSTS = {host: name for name, board in BOARDS.items() for host in board.HOSTS}
 ACCESS_PATH = re.compile(r"/(?:login|signin|sign-in|auth|challenge|checkpoint)(?:/|$)", re.I)
 BLOCK_HEADING = re.compile(
     r"^(?:sign in|log in)(?:\s|$)|verify.{0,30}human|just a moment|access denied|"
@@ -50,19 +36,7 @@ def canonical_job_url(href, base, source):
     url = urljoin(base, href)
     if source_for_url(url) != source:
         return None
-    parts = urlsplit(url)
-    if source == "Indeed":
-        if parts.path != "/viewjob":
-            return None
-        key = parse_qs(parts.query).get("jk", [""])[0]
-        if re.fullmatch(r"[a-fA-F0-9]{16}", key):
-            return f"https://au.indeed.com/viewjob?jk={key.lower()}"
-    else:
-        match = re.fullmatch(r"/job/([0-9]+)/?", parts.path)
-        if match:
-            return f"https://www.seek.com.au/job/{match[1]}"
-    return None
-
+    return BOARDS[source].canonical_job_url(urlsplit(url))
 
 def check_board_access(page, source):
     if source_for_url(page.url) != source or ACCESS_PATH.search(urlsplit(page.url).path):
@@ -89,9 +63,7 @@ def board_cards(page, source, title_filter):
         title = card.inner_text().strip()
         if not title or (title_filter and title_filter.casefold() not in title.casefold()):
             continue
-        href = card.get_attribute("href") or ""
-        if source == "Indeed" and (key := card.get_attribute("data-jk")):
-            href = f"/viewjob?jk={key}"
+        href = BOARDS[source].card_href(card)
         if url := canonical_job_url(href, page.url, source):
             found.setdefault(url, title)
     if not found:
@@ -102,7 +74,10 @@ def board_cards(page, source, title_filter):
 def read_board_job(page, source, url):
     response = page.goto(url, wait_until="domcontentloaded", timeout=15000)
     if response and response.status in {401, 403, 429, 503}:
-        raise BoardAccessError(f"{source} returned HTTP {response.status}.")
+        message = f"{source} detail page returned HTTP {response.status}."
+        if source == "Indeed" and response.status == 403:
+            message += " Use a manually imported posting or an authorised integration."
+        raise BoardAccessError(message)
     check_board_access(page, source)
     selectors = SELECTORS[source]
     description = page.locator(selectors["description"]).first
@@ -122,39 +97,17 @@ def read_board_job(page, source, url):
     return record
 
 
-def seek_result_urls(page, first_cards):
-    cards = first_cards
-    visited = {page.url}
-    number = 1
-    while True:
-        print(f"SEEK results page {number} contains {len(cards)} job cards.", flush=True)
-        yield from cards
-        next_page = page.get_by_role("link", name="Next", exact=True).filter(visible=True).first
-        if not next_page.is_visible():
-            return
-        href = next_page.get_attribute("href")
-        if not href:
-            return
-        url = urljoin(page.url, href)
-        if source_for_url(url) != "SEEK" or url in visited:
-            raise BoardAccessError("SEEK did not provide a new results page.")
-        response = page.goto(url, wait_until="domcontentloaded", timeout=15000)
-        if response and response.status in {401, 403, 429, 503}:
-            raise BoardAccessError(f"SEEK returned HTTP {response.status}.")
-        check_board_access(page, "SEEK")
-        visited.add(url)
-        page.locator(SELECTORS["SEEK"]["cards"]).filter(visible=True).first.wait_for(state="visible", timeout=8000)
-        cards = board_cards(page, "SEEK", None)
-        number += 1
-
-
 def collect_board_cards(page, args, playwright_error, conn, run, source, cards, delay):
     seen = captured_urls(conn, run.id)
+    excluded_title = title_exclusion_filter(conn)
     detail = page.context.new_page()
     failed = 0
     attempted = False
     try:
-        urls = seek_result_urls(page, cards) if args.all_pages else cards
+        if args.all_pages:
+            urls = seek.result_urls(page, cards, board_cards, BoardAccessError, excluded_title)
+        else:
+            urls = (url for url, title in cards.items() if not excluded_title(title))
         for url in urls:
             if url in seen:
                 continue
@@ -173,6 +126,8 @@ def collect_board_cards(page, args, playwright_error, conn, run, source, cards, 
                 print(error, file=sys.stderr)
                 run.errors.append(error)
                 failed += 1
+                continue
+            if excluded_title(record["title"]):
                 continue
             save_capture(conn, run.id, record)
             seen.add(url)

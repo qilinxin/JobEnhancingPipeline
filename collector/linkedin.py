@@ -12,8 +12,9 @@ from urllib.parse import parse_qs, urljoin, urlsplit, urlunsplit
 from psycopg import Error as DatabaseError
 
 from collector.job_boards import BoardAccessError, board_cards, collect_board_cards, source_for_url
-from storage.delivery_review import review_run
-from storage.match_review import score_run
+from scoring.delivery_review import review_run
+from scoring.match_review import score_run
+from storage.title_blacklist import title_exclusion_filter
 from storage.postgres import captured_urls, collection_run, connect, save_capture
 
 # Verify these against the live page in Chrome DevTools.
@@ -220,7 +221,7 @@ def read_job(page, card, expected):
     }
 
 
-def collect(page, args, playwright_error):
+def collect(page, args, playwright_error, *, defer_postprocessing=False, run_ids=None):
     source = source_for_url(page.url)
     if source:
         cards = board_cards(page, source, args.title)
@@ -233,6 +234,8 @@ def collect(page, args, playwright_error):
         with connect() as conn, collection_run(
             conn, run_id=args.run_id, search_url=page.url, search_name=f"{source} Jobs" if source else None,
         ) as run:
+            if run_ids is not None:
+                run_ids.append(run.id)
             if source:
                 result = collect_board_cards(
                     page, args, playwright_error, conn, run, source, cards, CAPTURE_DELAY_SECONDS,
@@ -240,10 +243,10 @@ def collect(page, args, playwright_error):
             else:
                 result = collect_cards(page, args, playwright_error, conn, run)
     except (StopCollection, BoardAccessError, playwright_error):
-        if run is not None and run.saved:
+        if not defer_postprocessing and run is not None and run.saved:
             postprocess_run(run.id, args.score_with_codex)
         raise
-    postprocess_result = postprocess_run(run.id, args.score_with_codex)
+    postprocess_result = 0 if defer_postprocessing else postprocess_run(run.id, args.score_with_codex)
     return result or postprocess_result
 
 
@@ -254,7 +257,7 @@ def postprocess_run(run_id, score_with_codex):
     return score_run(run_id) if score_with_codex else 0
 
 
-def page_cards(page, title_filter):
+def page_cards(page, title_filter, *, excluded_title=None):
     semantic = page.locator(SEMANTIC_CARDS)
     if semantic.count():
         candidates = semantic.evaluate_all(
@@ -281,12 +284,12 @@ def page_cards(page, title_filter):
     cards = {}
     for href, title, selector in candidates:
         key = job_key(href, page.url)
-        if key[1] and (not title_filter or title_filter.casefold() in title.casefold()):
+        if key[1] and (excluded_title is None or not excluded_title(title)) and (not title_filter or title_filter.casefold() in title.casefold()):
             cards.setdefault(key, selector)
     return cards
 
 
-def result_pages(page):
+def result_pages(page, excluded_title):
     visited = set()
     while True:
         check_access(page)
@@ -295,7 +298,7 @@ def result_pages(page):
         if not signature or signature in visited:
             raise StopCollection("No new job list appeared after changing pages.")
         visited.add(signature)
-        yield cards
+        yield page_cards(page, None, excluded_title=excluded_title)
         next_page = page.get_by_role("button", name=NEXT_PAGE, exact=True).filter(visible=True).first
         if not next_page.is_visible() or not next_page.is_enabled():
             return
@@ -311,13 +314,13 @@ def result_pages(page):
             raise StopCollection("The job list did not change after clicking Next.")
 
 
-def result_cards(page, args):
+def result_cards(page, args, excluded_title):
     if args.all_pages:
-        for number, cards in enumerate(result_pages(page), 1):
+        for number, cards in enumerate(result_pages(page, excluded_title), 1):
             print(f"Results page {number} contains {len(cards)} job cards.", flush=True)
             yield from cards.items()
         return
-    cards = page_cards(page, args.title)
+    cards = page_cards(page, args.title, excluded_title=excluded_title)
     if not cards:
         raise StopCollection("No matching job cards were found on the current page.")
     yield from cards.items()
@@ -327,7 +330,8 @@ def collect_cards(page, args, playwright_error, conn, run):
     seen = captured_urls(conn, run.id) if args.all_pages else set()
     failed = 0
     attempted = False
-    for expected, selector in result_cards(page, args):
+    excluded_title = title_exclusion_filter(conn)
+    for expected, selector in result_cards(page, args, excluded_title):
         check_access(page)
         _, url = expected
         if url in seen:
@@ -346,6 +350,8 @@ def collect_cards(page, args, playwright_error, conn, run):
             failed += 1
             if args.title and args.limit == 1:
                 break
+            continue
+        if excluded_title(record["title"]):
             continue
         save_capture(conn, run.id, record)
         run.saved += 1
