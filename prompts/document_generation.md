@@ -22,4 +22,3 @@ Do not carry over employer names, job titles or job-specific text from the examp
 {guidance.COVER_LETTER_GUIDE}
 
 {guidance.DELIVERY_GUIDE}
-
