@@ -18,10 +18,10 @@ from collector.job_boards import source_for_url
 from storage.blacklist import set_blacklisted
 from storage.metadata import posting_fields
 from storage.postgres import connect
-from web.library_view import render_library, CSS as LIBRARY_CSS, SCRIPT as LIBRARY_SCRIPT
+from web.library_view import render_shell, render_library, CSS as LIBRARY_CSS, SCRIPT as LIBRARY_SCRIPT
 
 SYDNEY = ZoneInfo("Australia/Sydney")
-STYLESHEET = Path(__file__).with_name("jobs_web.css").read_bytes()
+STYLESHEET = LIBRARY_CSS
 APPLICATION_FILES = Path(__file__).resolve().parents[1] / "application_files"
 CAPTURE_PATH = re.compile(r"/captures/([0-9]{1,18})(?:/download/(resume|cover-letter))?")
 DOCUMENTS = {"resume": "Resume", "cover-letter": "Cover letter"}
@@ -117,24 +117,8 @@ def application_filename(row, kind, suffix, *, include_role=False):
 
 
 def layout(title, body):
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{html(title)}</title>
-  <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-  <header class="top"><nav class="wrap top-nav" aria-label="Main navigation">
-    <a href="/">Job Library</a>
-    <a href="https://au.indeed.com/jobs?q=Java+Software+Engineer" target="_blank" rel="noopener">Search Indeed</a>
-    <a href="https://www.seek.com.au/java-software-engineer-jobs" target="_blank" rel="noopener">Search SEEK</a>
-    <a href="/blacklist">Company blacklist</a>
-  </nav></header>
-  <main class="wrap">{body}</main>
-</body>
-</html>"""
+    active = {"Company filters": "companies", "Title filters": "titles"}.get(title, "jobs")
+    return render_shell(title, f'<div class="workspace-page">{body}</div>', active=active)
 
 
 def company_blacklist(conn):
@@ -152,7 +136,7 @@ def company_blacklist(conn):
         for name, reason, count in rows
     )
     return layout("Company blacklist", f"""
-<h1>Company blacklist</h1>
+<div class="overline">Workspace preferences</div><h1>Company filters</h1>
 <form class="blacklist-form" action="/blacklist" method="post">
   <label>Company name <input name="company" required maxlength="200"></label>
   <label>Reason <input name="reason" maxlength="500" placeholder="Optional"></label>
@@ -289,14 +273,14 @@ def job_detail(conn, capture_id):
     return layout(row["title"], f"""
 <div class="detail">
 <a class="back" href="/?date={row['captured_at'].astimezone(SYDNEY).date().isoformat()}">‹ Back to captured jobs</a>
-<h1>{html(row['title'])}</h1>
+<div class="overline">Opportunity overview</div><h1>{html(row['title'])}</h1>
 <dl>{metadata}</dl>
 <nav class="detail-links" aria-label="Job and application links">{link}{"".join(downloads)}</nav>
 {status_buttons(row, detail=True)}
 <section class="description"><h2>Match details</h2><p>Match score <strong>{score}</strong>{score_note}</p>
   {clearance_note}{details}</section>
 <section class="description"><h2>Job description</h2><div class="prewrap">{html(description)}</div></section>
-<section class="description"><h2>Model</h2>{delivery_review}</section>
+<section class="description"><h2>Company research</h2>{delivery_review}</section>
 </div>""")
 
 

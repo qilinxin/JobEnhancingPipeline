@@ -29,6 +29,24 @@ def safe(value):
     return escape(str(value)) if value is not None else ''
 
 
+def render_shell(title, body, *, active='jobs', history='', script=False):
+    navigation = ''.join(
+        f'<a class="navitem{ " active" if key == active else ""}" href="{url}"'
+        f'{ " aria-current=page" if key == active else ""}>{icon(symbol)}<span>{label}</span></a>'
+        for key, url, label, symbol in (
+            ('jobs', '/', 'Captured jobs', 'briefcase'),
+            ('companies', '/blacklist', 'Company filters', 'sliders'),
+            ('titles', '/title-blacklist', 'Title filters', 'sliders'),
+        )
+    )
+    history = f'<div class="eyebrow">Capture history</div><nav class="dates" aria-label="Capture dates">{history}</nav>' if history else ''
+    scripts = '<script src="/library.js" defer></script>' if script else ''
+    mobile_nav = '<nav class="mobile-nav" aria-label="Workspace navigation">' + navigation + '</nav>'
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{safe(title)} · Job Library</title><link rel="stylesheet" href="/library.css">{scripts}</head><body>
+<aside class="sidebar"><a href="/" class="brand"><span class="brandmark">JL</span>Job Library</a>{navigation}{history}<div class="sidebarfooter"><strong>Private job workspace</strong><a href="https://www.seek.com.au/java-software-engineer-jobs" target="_blank" rel="noopener">Search SEEK ↗</a><a href="https://au.indeed.com/jobs?q=Java+Software+Engineer" target="_blank" rel="noopener">Search Indeed ↗</a></div></aside>
+<div class="shell"><header class="topbar"><div class="breadcrumb"><a href="/">Workspace</a><span>/</span><strong>{safe(title)}</strong></div><a href="/" class="mobilebrand"><span class="brandmark">JL</span>Job Library</a><span class="workspace-label">Personal workspace</span></header>{mobile_nav}<main>{body}</main></div></body></html>'''
+
+
 def render_library(rows, dates, day, *, show_applied=False, show_excluded=False, keyword=''):
     def view_url(view='', capture_day=day):
         query = {'date': capture_day.isoformat()}
@@ -87,12 +105,10 @@ def render_library(rows, dates, day, *, show_applied=False, show_excluded=False,
     clear = f'<a class="clearsearch" href="{safe(view_url())}">Clear search for “{safe(keyword)}”</a>' if keyword else ''
     empty = '<p class="empty">No jobs match this view. Choose another capture date or search across all dates.</p>' if not rows else ''
     date_label = 'Across all capture dates' if keyword else day.strftime('%A, %d %B %Y')
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{heading} · Job Library</title><link rel="stylesheet" href="/library.css"><script src="/library.js" defer></script></head><body>
-<aside class="sidebar"><a href="/" class="brand"><span class="brandmark">JL</span>Job Library</a><a class="navitem active" href="/">{icon('briefcase')}<span>Captured jobs</span></a><a class="navitem" href="/blacklist">{icon('sliders')}<span>Company filters</span></a><a class="navitem" href="/title-blacklist">{icon('sliders')}<span>Title filters</span></a><div class="eyebrow">Capture history</div><nav class="dates" aria-label="Capture dates">{''.join(links)}</nav><div class="sidebarfooter"><strong>Private job workspace</strong><a href="https://www.seek.com.au/java-software-engineer-jobs" target="_blank" rel="noopener">Search SEEK ↗</a><a href="https://au.indeed.com/jobs?q=Java+Software+Engineer" target="_blank" rel="noopener">Search Indeed ↗</a></div></aside>
-<div class="shell"><header class="topbar"><div class="breadcrumb">Workspace <span>/</span><strong>Job Library</strong></div><a href="/" class="mobilebrand"><span class="brandmark">JL</span>Job Library</a><span class="workspace-label">Personal workspace</span></header><main>
-<div class="heading"><div><div class="overline">Your opportunity workspace</div><h1>{heading}</h1><p class="subtitle">Review matches, prepare documents and track your applications.</p></div><div class="datebadge">{icon('calendar')}<span>{date_label}</span></div></div>
+    body = f'''<div class="heading"><div><div class="overline">Your opportunity workspace</div><h1>{heading}</h1><p class="subtitle">Review matches, prepare documents and track your applications.</p></div><div class="datebadge">{icon('calendar')}<span>{date_label}</span></div></div>
 <div class="mobilehistory"><label for="captureDate" class="searchlabel">Capture date</label><select id="captureDate">{''.join(date_options)}</select></div>
 <div class="stats"><div class="stat"><strong>{len(rows)}</strong><span>roles in this view</span></div><div class="stat feature"><strong>{strong}</strong><span>75+ matches</span></div><div class="stat"><strong>{ready}</strong><span>document sets ready</span></div></div>
 <div class="toolbar"><form class="job-search" method="get" action="/" role="search"><label class="search"><span class="searchlabel">Search all capture dates</span>{icon('search')}<input name="q" type="search" maxlength="200" value="{safe(keyword)}" placeholder="Search all dates: title, company or technology…"></label><button class="searchbutton">Search</button></form><select id="source" class="select" aria-label="Filter source"><option value="all">All sources</option><option>SEEK</option><option>LinkedIn</option><option>Indeed</option></select><select id="minimum" class="select" aria-label="Minimum match score"><option value="-1">Any score</option><option value="75">75+ matches</option><option value="85">85+ matches</option></select><div class="viewtoggle" aria-label="List density"><button id="comfortable" aria-label="Comfortable layout" aria-pressed="true">{icon('grid')}</button><button id="compact" aria-label="Compact layout" aria-pressed="false">{icon('list')}</button></div></div>{clear}
 <nav class="tabsbar" aria-label="Job status">{navigation[0]}<button class="tab" id="shortlist" aria-pressed="false">75+ matches <small>{strong}</small></button>{''.join(navigation[1:])}<span class="sort">Sorted by <strong>best match ↓</strong></span></nav>
-<div class="listmeta"><strong id="showing">{len(rows)} opportunities</strong><span class="local-filter-note">Source and score filters apply to this view</span></div><section class="list" aria-label="Job list">{''.join(cards)}{empty}<p class="empty" id="filteredEmpty" hidden>No jobs match these filters. Try another source or match score.</p></section><footer class="footer"><span class="hint">{date_label}</span><button class="reset" id="resetFilters">Reset filters</button></footer></main></div></body></html>'''
+<div class="listmeta"><strong id="showing">{len(rows)} opportunities</strong><span class="local-filter-note">Source and score filters apply to this view</span></div><section class="list" aria-label="Job list">{''.join(cards)}{empty}<p class="empty" id="filteredEmpty" hidden>No jobs match these filters. Try another source or match score.</p></section><footer class="footer"><span class="hint">{date_label}</span><button class="reset" id="resetFilters">Reset filters</button></footer>'''
+    return render_shell(heading, body, history=''.join(links), script=True)

@@ -246,3 +246,37 @@ h1{font-size:27px}
 .tab.selected{color:var(--green);border-bottom-color:var(--green);font-weight:650}
 progress.scoreline{appearance:none;display:block;width:100%;height:3px;border:0;background:#e9f0e9}progress.scoreline::-webkit-progress-bar{background:#e9f0e9;border-radius:2px}progress.scoreline::-webkit-progress-value{background:#77a98d;border-radius:2px}progress.scoreline::-moz-progress-bar{background:#77a98d;border-radius:2px}
 .navitem span:last-child{margin-left:0}.documentlinks{color:#819488}.documentlinks a{color:#47765b}
+
+/* Shared workspace surfaces for details, filters and error pages. */
+.mobile-nav{display:none}
+.workspace-page{max-width:1080px;margin:auto;line-height:1.65;overflow-wrap:anywhere}
+.workspace-page h1{max-width:900px;margin-bottom:14px}
+.workspace-page h2{font-size:17px;font-weight:650;letter-spacing:-.3px;margin:0 0 16px}
+.workspace-page a:not(.navitem){color:var(--green)}
+.workspace-page a:hover{text-decoration:underline;text-underline-offset:3px}
+.back{display:inline-block;font-size:12px;margin-bottom:26px;color:var(--muted)}
+.detail dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px;background:white;border:1px solid var(--line);border-radius:12px;padding:24px;margin:25px 0 20px}
+.detail dt{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+.detail dd{margin:0;font-size:13px;font-weight:550}
+.detail-links{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0}
+.detail-links a{border:1px solid #cddfd2;background:#fff;padding:10px 14px;border-radius:7px;font-size:12px}
+.document-pending{font-size:12px;color:var(--muted);padding:8px}
+.workspace-page .status-buttons{display:flex;gap:10px;margin:20px 0 28px}
+.workspace-page form{margin:0}
+.workspace-page button{border:1px solid #cddfd2;border-radius:7px;background:var(--light);color:var(--green);padding:10px 15px;font-weight:600;font-size:12px}
+.workspace-page button:hover{background:#dcebe2}
+.description{background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;margin-top:18px}
+.description p{color:#53685e;line-height:1.8}
+.prewrap{white-space:pre-wrap;font-size:14px;line-height:1.85;color:#40594c}
+.match-details{padding-left:18px;color:#53685e;line-height:1.85}
+.match-details>li+li{margin-top:16px}
+.match-details strong{display:block;color:var(--ink);font-size:12px}
+.match-details ul{padding-left:20px}
+.blacklist-form{display:flex;flex-wrap:wrap;gap:16px;align-items:end;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;margin:26px 0!important}
+.blacklist-form label{display:grid;gap:7px;flex:1;min-width:180px;font-size:12px;color:#53685e}
+.blacklist-form input{border:1px solid #d8e3dc;border-radius:7px;padding:11px 12px;background:#fafcf9;width:100%;color:var(--ink)}
+.blacklist-companies{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.blacklist-companies li{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 24px;font-size:13px}
+.blacklist-companies li+li{border-top:1px solid var(--line)}
+.blacklist-companies li div div{color:var(--muted);font-size:12px;margin-top:4px}
+@media(max-width:720px){.mobile-nav{display:flex;overflow:auto;padding:9px 17px;gap:6px;background:#fff;border-bottom:1px solid var(--line)}.mobile-nav .navitem{width:auto;white-space:nowrap;margin:0;padding:9px;font-size:11px}.mobile-nav svg{display:none}.description{padding:20px}.detail dl{padding:18px;gap:16px}.blacklist-form{padding:18px}.blacklist-companies li{padding:16px}.workspace-page h1{font-size:25px}.workspace-label{font-size:10px}.breadcrumb{min-width:0}.breadcrumb strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}

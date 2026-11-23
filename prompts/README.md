@@ -68,3 +68,10 @@ and external job postings also affect results. Persistent prompts keep the polic
 reviewable; model output is not guaranteed to be identical between runs.
 
 Never commit applicant files, generated documents, browser profiles or credentials.
+
+## Versioned defaults and current state
+
+`config/workflow.toml` now supplies the executable workflow and scoring defaults.
+See `docs/PROJECT_STATE.md` for persisted state, private backups and recovery.
+Run `python -m storage.export_policy` to save the current database filters under
+ignored `local/policy/`; initial migration keywords alone are not the current list.

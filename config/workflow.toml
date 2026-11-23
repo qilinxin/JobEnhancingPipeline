@@ -1,0 +1,15 @@
+# Shared, versioned workflow defaults. CLI options override these defaults.
+[workflow]
+sources = ["linkedin", "seek"]
+min_document_score = 75
+cdp_url = "http://127.0.0.1:9222"
+
+[scoring]
+client_delivery_penalty = 10
+visible_min_score = 60
+
+[scoring.java_factors]
+core = 1.0
+alternative = 1.0
+peripheral = 0.8
+absent = 0.75
