@@ -116,6 +116,7 @@ CREATE TABLE linkedin_job_captures (
         CHECK (NOT company_blacklisted OR match_score IS NOT DISTINCT FROM 0),
     score_before_blacklist numeric(5, 2),
     match_details text,
+    match_breakdown jsonb,
     city text,
     delivery_model text CHECK (delivery_model IN ('In-house', 'Client delivery')),
     delivery_reviewed_at timestamptz,

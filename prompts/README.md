@@ -75,3 +75,11 @@ Never commit applicant files, generated documents, browser profiles or credentia
 See `docs/PROJECT_STATE.md` for persisted state, private backups and recovery.
 Run `python -m storage.export_policy` to save the current database filters under
 ignored `local/policy/`; initial migration keywords alone are not the current list.
+
+## Requirement evidence ledger
+
+Scoring now persists a versioned `match_breakdown` JSONB ledger per capture. Each
+JD requirement includes the exact requirement quote, depth weight, verified master
+evidence, evidence level and computed available/earned points.
+`scoring/requirements.py` performs arithmetic; `web/app.py` displays the list.
+See the README migration and date-enrichment instructions.

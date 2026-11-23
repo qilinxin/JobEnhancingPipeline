@@ -43,6 +43,9 @@ For a new database, apply [the schema](storage/sql/schema.sql). For an existing 
 7. [Applied jobs](storage/sql/add_applied_jobs.sql)
 8. [Excluded jobs](storage/sql/add_excluded_jobs.sql)
 9. [Title blacklist](storage/sql/add_title_blacklist.sql)
+10. [Citizenship screening](storage/sql/add_citizenship_screening.sql)
+11. [Display deduplication](storage/sql/add_display_deduplication.sql)
+12. [Requirement evidence ledger](storage/sql/add_match_breakdown.sql)
 
 After applying the capture classification migration to an existing database, run `venv/bin/python -m storage.posting` to classify earlier captures and extract their key technologies.
 
@@ -163,3 +166,28 @@ Verify with `venv/bin/python -m unittest discover -s tests -p test_display_dedup
 The approved preview is implemented by `web/library_view.py`, `web/library.css` and `web/library.js`. The list uses real capture dates, final scores, delivery models, document links and application status forms. Global keyword search remains server-side; source, minimum-score and 75+ filters narrow the loaded view. Comfortable or compact density is stored as a browser preference. The mobile date selector provides access to the same capture history as the desktop sidebar. Detail and filter pages retain their existing routes and styling.
 
 CSS and JavaScript are served as same-origin assets under the existing security policy; inline scripts/styles are not enabled. Run `venv/bin/python -m unittest discover -s tests -p test_library_view.py -v` for rendering and escaping checks.
+
+## Auditable match requirements
+
+Apply `storage/sql/add_match_breakdown.sql` to an existing database after the
+citizenship screening migration. New tables include the `match_breakdown` JSONB
+column in the schema; apply the migration to install its invalidation trigger.
+The scorer stores JD quotes, required depth, verified resume quotes, evidence
+depth and computed item points in this column. The detail page renders these as
+lists, including unverified and partially evidenced requirements.
+
+`prompts/resume_matching.md` defines depth interpretation; `scoring/requirements.py`
+validates quotes and calculates category-normalized points. Missing evidence means
+that the current master needs confirmation, not that the applicant lacks experience.
+The current master remains the sole source of candidate claims.
+
+To enrich one Sydney capture date without repeating completed ledgers:
+
+```sh
+venv/bin/python -m scoring.match_review --date 2026-11-23 --missing-breakdown
+```
+
+A date run recalculates eligible scores from the evidence ledger. Screening zeroes,
+company/title filters and duplicates remain excluded. Existing generated documents
+are preserved. Changes to verified experience require a new score run; use
+`--run-id <id> --rescore` (optionally `--capture-id <id>`) after updating the master.
