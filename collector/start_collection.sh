@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 python="venv/bin/python"
 cdp_url="http://127.0.0.1:9222"
 chrome_profile="${LINKEDIN_CHROME_PROFILE:-$HOME/Library/Application Support/Chrome-LinkedIn-Debug}"
@@ -13,7 +13,7 @@ fail() {
   exit 1
 }
 
-[[ -x "$python" ]] || fail "The project virtual environment is missing. See RUN_LINKEDIN_COLLECTION.md."
+[[ -x "$python" ]] || fail "The project virtual environment is missing. See docs/RUN_LINKEDIN_COLLECTION.md."
 
 browser_only=false
 source=linkedin
@@ -23,7 +23,7 @@ while (($#)); do
   shift
   case "$arg" in
     -h|--help)
-      printf '%s\n\n' "Usage: ./start_collection.sh [--browser-only] [collector options]" \
+      printf '%s\n\n' "Usage: ./collector/start_collection.sh [--browser-only] [collector options]" \
         "The launcher opens LinkedIn, Indeed, and SEEK searches in debugging Chrome."
       exec "$python" run.py --help
       ;;
@@ -61,7 +61,7 @@ wait_for() {
     fi
     sleep 1
   done
-  fail "$description did not become ready. See RUN_LINKEDIN_COLLECTION.md."
+  fail "$description did not become ready. See docs/RUN_LINKEDIN_COLLECTION.md."
 }
 
 postgres_ready() {

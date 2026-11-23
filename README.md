@@ -1,4 +1,4 @@
-# LinkedIn Job Collection
+# JobEnhancingPipeline
 
 Collect LinkedIn job descriptions from a manually opened Chrome tab, store them in PostgreSQL, and browse them in the local Job Library.
 
@@ -16,7 +16,7 @@ The root scripts `run.py`, `jobs_web.py`, and `linkedin_storage.py` are command-
 The project uses PostgreSQL 17 with these connection defaults: `PGHOST=localhost`, `PGPORT=5432`, `PGDATABASE=resume_db`, and `PGUSER=resume_user`. Set `PGPASSWORD` in the terminal environment if your PostgreSQL server requires a password.
 
 ```sh
-cd ~/Desktop/ResumeSubmissionAssistance
+cd ~/Desktop/JobEnhancingPipeline
 venv/bin/python -m pip install -r requirements.txt
 ```
 
@@ -143,3 +143,10 @@ Verify with `venv/bin/python -m unittest discover -s tests -p test_display_dedup
 The approved preview is implemented by `web/library_view.py`, `web/library.css` and `web/library.js`. The list uses real capture dates, final scores, delivery models, document links and application status forms. Global keyword search remains server-side; source, minimum-score and 75+ filters narrow the loaded view. Comfortable or compact density is stored as a browser preference. The mobile date selector provides access to the same capture history as the desktop sidebar. Detail and filter pages retain their existing routes and styling.
 
 CSS and JavaScript are served as same-origin assets under the existing security policy; inline scripts/styles are not enabled. Run `venv/bin/python -m unittest discover -s tests -p test_library_view.py -v` for rendering and escaping checks.
+
+## Workflow entry point and policy
+
+Use `./start_job.sh` for the complete daily workflow. Use
+`./collector/start_collection.sh` for interactive collection and browser setup.
+See [the prompt and rule index](prompts/README.md) for persisted model prompts,
+scoring adjustments, database filters and private applicant inputs.
