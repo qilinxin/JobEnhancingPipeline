@@ -116,9 +116,9 @@ def application_filename(row, kind, suffix, *, include_role=False):
     return "_".join(parts) + suffix
 
 
-def layout(title, body):
+def layout(title, body, *, history=""):
     active = {"Company filters": "companies", "Title filters": "titles"}.get(title, "jobs")
-    return render_shell(title, f'<div class="workspace-page">{body}</div>', active=active)
+    return render_shell(title, f'<div class="workspace-page">{body}</div>', active=active, history=history)
 
 
 def company_blacklist(conn):
@@ -206,6 +206,28 @@ def list_jobs(conn, selected_date, *, show_applied=False, show_excluded=False):
                           show_excluded=show_excluded)
 
 
+def detail_capture_history(conn, selected_day):
+    """Keep the default capture-date navigation available from a job detail."""
+    rows = conn.execute(
+        f"""SELECT (c.captured_at AT TIME ZONE %s)::date AS day,
+                   count(DISTINCT c.job_id) FILTER (
+                       WHERE j.applied_at IS NULL AND j.excluded_at IS NULL
+                         AND {VISIBLE_CAPTURES}
+                   ) AS total
+            FROM public.linkedin_job_captures c
+            JOIN public.linkedin_jobs j ON j.id = c.job_id
+            GROUP BY 1 ORDER BY 1 DESC""",
+        (SYDNEY.key,),
+    ).fetchall()
+    return "".join(
+        f'<a class="day{ " active" if day == selected_day else ""}" '
+        f'href="/?date={day.isoformat()}"'
+        f'{ " aria-current=page" if day == selected_day else ""}>'
+        f'<span>{day:%d %B}</span><small>{total}</small></a>'
+        for day, total in rows
+    )
+
+
 def job_detail(conn, capture_id):
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -281,7 +303,7 @@ def job_detail(conn, capture_id):
   {clearance_note}{details}</section>
 <section class="description"><h2>Job description</h2><div class="prewrap">{html(description)}</div></section>
 <section class="description"><h2>Company research</h2>{delivery_review}</section>
-</div>""")
+</div>""", history=detail_capture_history(conn, row["captured_at"].astimezone(SYDNEY).date()))
 
 
 class JobsHandler(BaseHTTPRequestHandler):
