@@ -6,6 +6,9 @@ the application calculates and stores the score from your requirement evidence.
 Extract ALL named technologies, frameworks, platforms, tools, languages, databases,
 protocols and engineering practices required or preferred by the JD, plus distinct
 experience, domain and responsibility requirements. Do not invent requirements.
+Do not count generic delivery experience as evidence of a named technology.
+Java API work alone does not establish ownership of a SaaS or reporting platform.
+Willingness to become full-stack does not establish prior full-stack experience.
 Group explicit interchangeable alternatives into ONE requirement and assess the
 best supported path (e.g. Java OR Python). Split independently required skills,
 including lists of cloud, testing, security or delivery tools. Do not duplicate the
